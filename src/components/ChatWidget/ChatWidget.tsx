@@ -149,7 +149,7 @@ export function ChatWidget({
       // Add error message to chat
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: 'מצטער, אירעה שגיאה בעיבוד ההודעה. אנא נסה שוב.' 
+        content: 'על זה אני עדיין לא יכול לענות :( תשאיר הודעה ונחזיר לך תשובה בהקדם!' 
       }]);
     } finally {
       setIsLoading(false);
