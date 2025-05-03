@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import '@testing-library/jest-dom/extend-expect'
 
 // Mock window.matchMedia
 window.matchMedia = window.matchMedia || function() {
@@ -51,51 +52,4 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: jest.fn(),
     dispatchEvent: jest.fn(),
   })),
-});
-
-// Extend Jest matchers
-expect.extend({
-  toBeInTheDocument(received) {
-    const pass = Boolean(received && received.ownerDocument && received.ownerDocument.contains(received));
-    return {
-      pass,
-      message: () => `expected element ${pass ? 'not ' : ''}to be in the document`,
-    };
-  },
-  toHaveBeenCalledWith(...args) {
-    const received = this.actual;
-    const pass = received && received.mock && received.mock.calls.some(call =>
-      call.length === args.length && call.every((arg, i) => this.equals(arg, args[i]))
-    );
-    return {
-      pass,
-      message: () => `expected ${received} ${pass ? 'not ' : ''}to have been called with ${args.join(', ')}`,
-    };
-  },
-  toBeTruthy() {
-    const pass = Boolean(this.actual);
-    return {
-      pass,
-      message: () => `expected ${this.actual} ${pass ? 'not ' : ''}to be truthy`,
-    };
-  },
-  toBe(expected) {
-    const pass = Object.is(this.actual, expected);
-    return {
-      pass,
-      message: () => `expected ${this.actual} ${pass ? 'not ' : ''}to be ${expected}`,
-    };
-  },
-  toContain(expected) {
-    const received = this.actual;
-    const pass = received && typeof received === 'string' 
-      ? received.includes(expected)
-      : Array.isArray(received)
-      ? received.includes(expected)
-      : false;
-    return {
-      pass,
-      message: () => `expected ${received} ${pass ? 'not ' : ''}to contain ${expected}`,
-    };
-  },
 }); 

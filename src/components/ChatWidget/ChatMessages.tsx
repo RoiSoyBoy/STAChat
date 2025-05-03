@@ -54,11 +54,22 @@ export function ChatMessages({ greeting, translations }: ChatMessagesProps) {
       const userMessage = { role: 'user', content: inputValue.trim() };
       setMessages(prev => [...prev, userMessage]);
       setInputValue('');
+
+      // Ensure persistent clientId
+      let clientId = typeof window !== "undefined" ? localStorage.getItem('clientId') : null;
+      if (typeof window !== "undefined" && !clientId) {
+        clientId = crypto.randomUUID();
+        localStorage.setItem('clientId', clientId);
+      }
+
+      // Debug log
+      console.log('DEBUG: Sending to /api/chat:', { message: userMessage.content, clientId });
+
       // Send to API
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content }),
+        body: JSON.stringify({ message: userMessage.content, clientId }),
       });
       if (!response.ok) throw new Error('Failed to send message');
       const data = await response.json();

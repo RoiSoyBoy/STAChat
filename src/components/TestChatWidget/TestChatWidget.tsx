@@ -90,11 +90,21 @@ export function TestChatWidget({ primaryColor, greeting, logoUrl }: TestChatWidg
     setIsLoading(true);
 
     try {
+      // Ensure persistent clientId
+      let clientId = typeof window !== "undefined" ? localStorage.getItem('clientId') : null;
+      if (typeof window !== "undefined" && !clientId) {
+        clientId = crypto.randomUUID();
+        localStorage.setItem('clientId', clientId);
+      }
+
+      // Debug log
+      console.log('DEBUG: Sending to /api/chat:', { message: userMessage.text, clientId });
+
       // Make real API call to /api/chat
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.text, clientId: 'test-client' }),
+        body: JSON.stringify({ message: userMessage.text, clientId }),
       });
       if (!response.ok) {
         throw new Error('Failed to get response');

@@ -1,3 +1,4 @@
+export {};
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '../test-utils';
 import { act } from 'react-dom/test-utils';

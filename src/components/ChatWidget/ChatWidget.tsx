@@ -8,6 +8,7 @@ import { RobotIcon } from './RobotIcon';
 import { useTheme } from '@/lib/ThemeContext';
 
 // Animation variants for the chat window
+
 const chatWindowVariants = {
   hidden: (origin: { x: number; y: number }) => ({
     opacity: 0,
@@ -81,6 +82,13 @@ export function ChatWidget({
   const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0 });
   const { primaryColor } = useTheme();
 
+  // Ensure persistent clientId
+  let clientId = typeof window !== "undefined" ? localStorage.getItem('clientId') : null;
+  if (typeof window !== "undefined" && !clientId) {
+    clientId = crypto.randomUUID();
+    localStorage.setItem('clientId', clientId);
+  }
+
   useEffect(() => {
     // Add greeting message if no messages exist
     if (messages.length === 0) {
@@ -116,17 +124,23 @@ export function ChatWidget({
 
     try {
       setIsLoading(true);
-      
+
       // Add user message
       const userMessage = { role: 'user', content: inputValue.trim() };
       setMessages(prev => [...prev, userMessage]);
       setInputValue('');
 
-      // Send to API
+      // Debug log: show what will be sent to the API
+      console.log('Sending to /api/chat:', { message: userMessage.content, clientId });
+
+      // Send to API with clientId
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content }),
+        body: JSON.stringify({
+          message: userMessage.content,
+          clientId // <-- Always include this!
+        }),
       });
 
       if (!response.ok) {
@@ -134,23 +148,28 @@ export function ChatWidget({
       }
 
       const data = await response.json();
-      
+
       if (data.error) {
         throw new Error(data.error);
       }
 
       // Add bot response
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: data.response 
-      }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: data.response
+        }
+      ]);
     } catch (error) {
       console.error('Error sending message:', error);
-      // Add error message to chat
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'על זה אני עדיין לא יכול לענות :( תשאיר הודעה ונחזיר לך תשובה בהקדם!' 
-      }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'מצטער, אירעה שגיאה בעיבוד ההודעה. אנא נסה שוב.'
+        }
+      ]);
     } finally {
       setIsLoading(false);
     }

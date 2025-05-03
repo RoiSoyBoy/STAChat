@@ -1,7 +1,8 @@
+export {};
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '../test-utils';
 import { act } from 'react-dom/test-utils';
-import ChatWidget from '@/components/ChatWidget';
+import { ChatWidget } from '@/components/ChatWidget';
 import { toast } from 'react-toastify';
 import '@testing-library/jest-dom';
 
@@ -21,8 +22,13 @@ global.fetch = jest.fn(() => Promise.resolve({
 
 describe('ChatWidget', () => {
   const defaultProps = {
-    clientId: 'test-client',
-    primaryColor: '#0066cc',
+    greeting: 'שלום! איך אפשר לעזור?',
+    messages: [],
+    setMessages: jest.fn(),
+    translations: {
+      typeMessage: 'הקלד/י הודעה...',
+      send: 'שלח',
+    },
   };
 
   beforeEach(() => {
@@ -32,12 +38,12 @@ describe('ChatWidget', () => {
   });
 
   it('renders the chat button when closed', () => {
-    render(<ChatWidget {...defaultProps} />);
+    render(React.createElement(ChatWidget, defaultProps));
     expect(screen.getByLabelText('פתח צ\'אט')).toBeInTheDocument();
   });
 
   it('opens the chat window when clicking the button', () => {
-    render(<ChatWidget {...defaultProps} />);
+    render(React.createElement(ChatWidget, defaultProps));
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
     expect(screen.getByLabelText('חלון צ\'אט')).toBeInTheDocument();
   });
@@ -68,7 +74,7 @@ describe('ChatWidget', () => {
       })
     );
 
-    render(<ChatWidget {...defaultProps} />);
+    render(React.createElement(ChatWidget, defaultProps));
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     await waitFor(() => {
@@ -95,7 +101,7 @@ describe('ChatWidget', () => {
       });
     });
 
-    render(<ChatWidget {...defaultProps} />);
+    render(React.createElement(ChatWidget, defaultProps));
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     const input = screen.getByLabelText('תיבת טקסט להודעה');
@@ -113,7 +119,7 @@ describe('ChatWidget', () => {
   it('handles network errors gracefully', async () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
-    render(<ChatWidget {...defaultProps} />);
+    render(React.createElement(ChatWidget, defaultProps));
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     const input = screen.getByLabelText('תיבת טקסט להודעה');
@@ -166,7 +172,7 @@ describe('ChatWidget', () => {
         })
       );
 
-    render(<ChatWidget {...defaultProps} />);
+    render(React.createElement(ChatWidget, defaultProps));
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     await waitFor(() => {
@@ -205,7 +211,7 @@ describe('ChatWidget', () => {
       });
     });
 
-    render(<ChatWidget {...defaultProps} />);
+    render(React.createElement(ChatWidget, defaultProps));
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     const input = screen.getByLabelText('תיבת טקסט להודעה');
