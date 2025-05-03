@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebase-admin';
 
 // In-memory message storage
 const messageStore: Record<string, Array<{
@@ -9,56 +10,62 @@ const messageStore: Record<string, Array<{
 }>> = {};
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const clientId = searchParams.get('clientId');
+  const userId = searchParams.get('userId');
   const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-  if (!clientId) {
+  if (!userId) {
     return NextResponse.json(
-      { error: 'Client ID is required' },
+      { error: 'User ID is required' },
       { status: 400 }
     );
   }
 
-  const messages = messageStore[clientId] || [];
-  const pageSize = 20;
-  const paginatedMessages = messages.slice(offset, offset + pageSize);
-  const hasMore = offset + pageSize < messages.length;
+  const snapshot = await adminDb
+    .collection('users')
+    .doc(userId)
+    .collection('messages')
+    .orderBy('timestamp', 'asc')
+    .offset(offset)
+    .limit(20)
+    .get();
+
+  const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const hasMore = messages.length === 20;
 
   return NextResponse.json({
-    messages: paginatedMessages,
+    messages,
     hasMore,
   });
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { clientId, message } = await request.json();
+    const { userId, message, role = 'user' } = await request.json();
 
-    if (!clientId || !message) {
+    if (!userId || !message) {
       return NextResponse.json(
-        { error: 'Client ID and message are required' },
+        { error: 'User ID and message are required' },
         { status: 400 }
       );
     }
 
-    if (!messageStore[clientId]) {
-      messageStore[clientId] = [];
-    }
-
     const newMessage = {
-      id: Date.now().toString(),
       content: message,
-      role: 'user' as const,
+      role,
       timestamp: Date.now(),
     };
 
-    messageStore[clientId].push(newMessage);
+    const docRef = await adminDb
+      .collection('users')
+      .doc(userId)
+      .collection('messages')
+      .add(newMessage);
 
-    return NextResponse.json({ success: true, message: newMessage });
+    return NextResponse.json({ success: true, message: { id: docRef.id, ...newMessage } });
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to save message' },

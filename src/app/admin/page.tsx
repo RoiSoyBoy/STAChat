@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/admin/Card';
 import { FileUpload } from '@/components/admin/FileUpload';
@@ -12,6 +13,10 @@ import { useDropzone } from 'react-dropzone';
 import { validateFileUpload, validateUrl, validateColorContrast } from '@/lib/validation';
 import { processTrainingData } from '@/lib/training-data';
 import { useSettings } from '@/lib/SettingsContext';
+import { db } from '@/lib/firebase'; // Firestore client
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+
+export {};
 
 interface AdminDashboardProps {
   initialUrls?: string[];
@@ -30,7 +35,7 @@ export default function AdminDashboard({
   const [logo, setLogo] = useState<File | null>(null);
   const [logoUrl, setLogoUrl] = useState<string>(initialLogo);
   const [greeting, setGreeting] = useState('שלום! איך אני יכול/ה לעזור לך היום?');
-  const [urls, setUrls] = useState<string[]>(initialUrls);
+  const [urls, setUrls] = useState<Array<{ id: string, url: string, extractedText: string }>>([]);
   const [newUrl, setNewUrl] = useState('');
   const [files, setFiles] = useState<Array<{ name: string; size: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +44,8 @@ export default function AdminDashboard({
   const [isUploading, setIsUploading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const clientId = "admin"; // Or get from auth/session
+  const [isAddingUrl, setIsAddingUrl] = useState(false);
 
   useEffect(() => {
     async function fetchSettings() {
@@ -69,6 +76,22 @@ export default function AdminDashboard({
     }
     fetchSettings();
   }, [setPrimaryColor, initialColor]);
+
+  // Fetch URLs from Firestore on load
+  useEffect(() => {
+    const fetchUrls = async () => {
+      // Fetch all clientIds under trainingData
+      const trainingDataSnap = await getDocs(collection(db, 'trainingData'));
+      let allUrls: Array<{ id: string, url: string, extractedText: string }> = [];
+      for (const clientDoc of trainingDataSnap.docs) {
+        const urlsSnap = await getDocs(collection(db, 'trainingData', clientDoc.id, 'urls'));
+        allUrls = allUrls.concat(urlsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
+      }
+      console.log('Fetched URLs:', allUrls);
+      setUrls(allUrls);
+    };
+    fetchUrls();
+  }, []);
 
   // Debounced color change handler
   const debouncedSetColor = useCallback(
@@ -111,23 +134,58 @@ export default function AdminDashboard({
     }
   };
 
-  const handleAddUrl = () => {
+  // Add URL (calls backend API)
+  const handleAddUrl = async () => {
     if (!validateUrl(newUrl)) {
       toast.error('כתובת URL לא תקינה');
       return;
     }
-
-    if (urls.includes(newUrl)) {
+    if (urls.some(u => u.url === newUrl)) {
       toast.error('כתובת URL זו כבר קיימת');
       return;
     }
-
-    setUrls([...urls, newUrl]);
-    setNewUrl('');
+    setIsAddingUrl(true);
+    try {
+      const res = await fetch('/api/extract-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: newUrl, clientId }),
+      });
+      const data = await res.json();
+      if (res.status === 409 || data.error === 'URL already exists') {
+        toast.error('כתובת URL זו כבר קיימת');
+        setIsAddingUrl(false);
+        return;
+      }
+      if (data.success) {
+        setUrls(urls => [...urls, { id: data.id, url: data.url, extractedText: data.extractedText }]);
+        setNewUrl('');
+        toast.success('הכתובת נוספה ואובחנה בהצלחה');
+      } else if (data.error) {
+        if (data.error.includes('fetch')) {
+          toast.error('שגיאה בשליפת התוכן מהכתובת. ייתכן שהאתר חוסם גישה או לא קיים.');
+        } else if (data.error.includes('Firestore')) {
+          toast.error('שגיאה בשמירת הכתובת במסד הנתונים');
+        } else {
+          toast.error('שגיאה בהוספת כתובת: ' + data.error);
+        }
+        console.error('Add URL error:', data);
+      } else {
+        toast.error('שגיאה לא ידועה בהוספת כתובת');
+        console.error('Unknown error adding URL:', data);
+      }
+    } catch (err) {
+      toast.error('שגיאה כללית בהוספת כתובת');
+      console.error('Exception in handleAddUrl:', err);
+    } finally {
+      setIsAddingUrl(false);
+    }
   };
 
-  const handleRemoveUrl = (urlToRemove: string) => {
-    setUrls(urls.filter(url => url !== urlToRemove));
+  // Delete URL
+  const handleRemoveUrl = async (id: string) => {
+    await deleteDoc(doc(db, 'trainingData', clientId, 'urls', id));
+    setUrls(urls => urls.filter(u => u.id !== id));
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -177,6 +235,10 @@ export default function AdminDashboard({
   const handleTrainingDataUpload = async (files: File[]) => {
     try {
       for (const file of files) {
+        if (files.some(f => f.name === file.name)) {
+          toast.error('קובץ בשם זה כבר הועלה');
+          continue;
+        }
         const data = await processTrainingData(file);
         // Here you would typically send this to your backend
         console.log('Processed training data:', data);
@@ -338,22 +400,23 @@ export default function AdminDashboard({
               <button
                 onClick={handleAddUrl}
                 className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition"
+                disabled={isAddingUrl}
               >
-                הוסף
+                {isAddingUrl ? 'מעלה...' : 'הוסף'}
               </button>
             </div>
             <div className="space-y-2">
               {paginatedUrls.map((url, index) => (
                 <motion.div
-                  key={url}
+                  key={url.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   className="flex items-center justify-between rounded-lg border border-gray-200 p-3 bg-white shadow-sm"
                 >
-                  <span className="text-sm text-gray-600 break-all">{url}</span>
+                  <span className="text-sm text-gray-600 break-all">{url.url}</span>
                   <button
-                    onClick={() => handleRemoveUrl(url)}
+                    onClick={() => handleRemoveUrl(url.id)}
                     className="text-red-500 hover:text-red-700 px-2 py-1 rounded transition"
                   >
                     מחק

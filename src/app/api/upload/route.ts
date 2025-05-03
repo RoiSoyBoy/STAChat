@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { adminDb } from '@/lib/firebase-admin';
+import { getStorage } from 'firebase-admin/storage';
 import { headers } from 'next/headers';
 import { checkRateLimit, getRateLimitResponse } from '@/lib/cache';
 
@@ -21,7 +20,12 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file');
-    
+    const userId = formData.get('userId');
+
+    if (!userId || typeof userId !== 'string') {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
     if (!file || !(file instanceof Blob)) {
       return NextResponse.json(
         { error: 'קובץ לא נמצא' },
@@ -47,28 +51,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-    if (!existsSync(uploadDir)) {
-      mkdirSync(uploadDir, { recursive: true });
-    }
-
     // Generate unique filename
     const timestamp = Date.now();
-    const filename = `upload-${timestamp}.${file.type.split('/')[1]}`;
-    const filepath = join(uploadDir, filename);
+    const extension = file.type.split('/')[1];
+    const filename = `upload-${timestamp}.${extension}`;
+    const storagePath = `uploads/${userId}/${filename}`;
 
-    // Convert File to Uint8Array
-    const bytes = await file.arrayBuffer();
-    const buffer = new Uint8Array(bytes);
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Write file
-    await writeFile(filepath, buffer);
+    // Upload to Firebase Storage
+    const bucket = getStorage().bucket();
+    const fileRef = bucket.file(storagePath);
+    await fileRef.save(buffer, {
+      contentType: file.type,
+      public: true, // Make file publicly accessible
+    });
 
-    // Return the URL that can be used to access the file
-    const url = `/uploads/${filename}`;
+    // Get public URL
+    const url = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
 
-    return NextResponse.json({ 
+    // Save metadata to Firestore
+    await adminDb.collection('uploads').add({
+      userId,
+      filename,
+      url,
+      timestamp: Date.now()
+    });
+
+    return NextResponse.json({
       success: true,
       url,
       filename
