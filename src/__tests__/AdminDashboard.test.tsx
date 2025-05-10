@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 export {};
+=======
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '../test-utils';
 import { act } from 'react-dom/test-utils';
@@ -21,6 +24,7 @@ global.fetch = jest.fn(() => Promise.resolve({
   json: () => Promise.resolve({}),
 })) as jest.Mock;
 
+<<<<<<< HEAD
 // Mock Firebase modules
 jest.mock('firebase/app', () => ({
   initializeApp: jest.fn(() => ({})),
@@ -38,6 +42,15 @@ jest.mock('firebase/auth', () => ({
 }));
 
 describe('AdminDashboard', () => {
+=======
+describe('AdminDashboard', () => {
+  const defaultProps = {
+    initialUrls: ['https://example.com'],
+    initialColor: '#0066cc',
+    initialLogo: 'https://example.com/logo.png',
+  };
+
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
@@ -45,7 +58,11 @@ describe('AdminDashboard', () => {
   });
 
   it('renders all sections', () => {
+<<<<<<< HEAD
     render(<AdminDashboard />);
+=======
+    render(<AdminDashboard {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     expect(screen.getByText('צבע ראשי')).toBeInTheDocument();
     expect(screen.getByText('לוגו')).toBeInTheDocument();
     expect(screen.getByText('כתובות URL מורשות')).toBeInTheDocument();
@@ -53,7 +70,11 @@ describe('AdminDashboard', () => {
   });
 
   it('validates color contrast', async () => {
+<<<<<<< HEAD
     render(<AdminDashboard />);
+=======
+    render(<AdminDashboard {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     const colorInput = screen.getByLabelText('בחר צבע ראשי');
 
     // Test with a low contrast color
@@ -69,9 +90,15 @@ describe('AdminDashboard', () => {
   });
 
   it('validates URLs', () => {
+<<<<<<< HEAD
     render(<AdminDashboard />);
     const urlInput = screen.getByPlaceholderText('הכנס כתובת URL');
     const addButton = screen.getByText('הוסף');
+=======
+    render(<AdminDashboard {...defaultProps} />);
+    const urlInput = screen.getByLabelText('הכנס כתובת URL חדשה');
+    const addButton = screen.getByLabelText('הוסף כתובת URL');
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 
     // Test invalid URL
     fireEvent.change(urlInput, { target: { value: 'invalid-url' } });
@@ -85,9 +112,15 @@ describe('AdminDashboard', () => {
   });
 
   it('prevents duplicate URLs', () => {
+<<<<<<< HEAD
     render(<AdminDashboard />);
     const urlInput = screen.getByPlaceholderText('הכנס כתובת URL');
     const addButton = screen.getByText('הוסף');
+=======
+    render(<AdminDashboard {...defaultProps} />);
+    const urlInput = screen.getByLabelText('הכנס כתובת URL חדשה');
+    const addButton = screen.getByLabelText('הוסף כתובת URL');
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 
     // Try to add the same URL that's already in initialUrls
     fireEvent.change(urlInput, { target: { value: 'https://example.com' } });
@@ -95,6 +128,7 @@ describe('AdminDashboard', () => {
     expect(toast.error).toHaveBeenCalledWith('כתובת URL זו כבר קיימת');
   });
 
+<<<<<<< HEAD
   it('handles file uploads', async () => {
     render(<AdminDashboard />);
     const dropzone = screen.getByText('גרור קבצים לכאן או לחץ לבחירת קבצים').closest('div');
@@ -107,10 +141,51 @@ describe('AdminDashboard', () => {
             kind: 'file',
             type: 'image/png',
             getAsFile: () => new File(['dummy content'], 'test.png', { type: 'image/png' }),
+=======
+  it('handles URL pagination', () => {
+    const manyUrls = Array.from({ length: 15 }, (_, i) => `https://example${i}.com`);
+    render(<AdminDashboard initialUrls={manyUrls} initialColor="#0066cc" initialLogo="" />);
+
+    // Should show pagination controls
+    expect(screen.getByText('עמוד 1 מתוך 2')).toBeInTheDocument();
+
+    // Click next page
+    fireEvent.click(screen.getByLabelText('לדף הבא'));
+    expect(screen.getByText('עמוד 2 מתוך 2')).toBeInTheDocument();
+
+    // Click previous page
+    fireEvent.click(screen.getByLabelText('לדף הקודם'));
+    expect(screen.getByText('עמוד 1 מתוך 2')).toBeInTheDocument();
+  });
+
+  it('handles file uploads', async () => {
+    const file = new File(['dummy content'], 'test.png', { type: 'image/png' });
+    const mockResponse = { url: 'https://example.com/uploaded.png' };
+
+    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      })
+    );
+
+    render(<AdminDashboard {...defaultProps} />);
+    const dropzone = screen.getByLabelText('אזור העלאת לוגו');
+
+    await act(async () => {
+      const dataTransfer = {
+        files: [file],
+        items: [
+          {
+            kind: 'file',
+            type: file.type,
+            getAsFile: () => file,
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
           },
         ],
         types: ['Files'],
       };
+<<<<<<< HEAD
       expect(() => fireEvent.drop(dropzone!, { dataTransfer })).not.toThrow();
     });
     // No toast assertion, just ensure drop event does not throw
@@ -128,12 +203,72 @@ describe('AdminDashboard', () => {
             kind: 'file',
             type: 'application/pdf',
             getAsFile: () => new File(['dummy content'], 'test.pdf', { type: 'application/pdf' }),
+=======
+
+      fireEvent.drop(dropzone, { dataTransfer });
+    });
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('הלוגו הועלה בהצלחה');
+    });
+  });
+
+  it('validates file uploads', async () => {
+    const invalidFile = new File(['dummy content'], 'test.txt', { type: 'text/plain' });
+
+    render(<AdminDashboard {...defaultProps} />);
+    const dropzone = screen.getByLabelText('אזור העלאת לוגו');
+
+    await act(async () => {
+      const dataTransfer = {
+        files: [invalidFile],
+        items: [
+          {
+            kind: 'file',
+            type: invalidFile.type,
+            getAsFile: () => invalidFile,
           },
         ],
         types: ['Files'],
       };
+
+      fireEvent.drop(dropzone, { dataTransfer });
+    });
+
+    expect(toast.error).toHaveBeenCalledWith('קובץ לא תקין: אנא העלה PNG או JPEG בלבד');
+  });
+
+  it('handles training data uploads', async () => {
+    const pdfFile = new File(['dummy content'], 'test.pdf', { type: 'application/pdf' });
+
+    render(<AdminDashboard {...defaultProps} />);
+    const dropzone = screen.getByLabelText('אזור העלאת קבצי אימון');
+
+    await act(async () => {
+      const dataTransfer = {
+        files: [pdfFile],
+        items: [
+          {
+            kind: 'file',
+            type: pdfFile.type,
+            getAsFile: () => pdfFile,
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
+          },
+        ],
+        types: ['Files'],
+      };
+<<<<<<< HEAD
       expect(() => fireEvent.drop(dropzone!, { dataTransfer })).not.toThrow();
     });
     // No toast assertion, just ensure drop event does not throw
+=======
+
+      fireEvent.drop(dropzone, { dataTransfer });
+    });
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('קבצי האימון עובדו בהצלחה');
+    });
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
   });
 }); 

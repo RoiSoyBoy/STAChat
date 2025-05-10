@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # New_Chat_Bot
 
 ## 🚀 Overview
@@ -147,3 +148,6 @@ src/
 
 ## Contributing
 See `CONTRIBUTING.md` for guidelines on adding new features, using shared utilities, and safely archiving code.
+=======
+# New_Chat_Bot
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02

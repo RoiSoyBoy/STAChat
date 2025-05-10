@@ -95,6 +95,10 @@ export function FloatingChat() {
       </motion.button>
     </div>
   );
+<<<<<<< HEAD
 }
 
 export { ChatWidget } from './ChatWidget'; 
+=======
+} 
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
