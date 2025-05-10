@@ -1,11 +1,15 @@
 {
   "compilerOptions": {
     "target": "es5",
+<<<<<<< HEAD
     "lib": [
       "dom",
       "dom.iterable",
       "esnext"
     ],
+=======
+    "lib": ["dom", "dom.iterable", "esnext"],
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -23,6 +27,7 @@
       }
     ],
     "paths": {
+<<<<<<< HEAD
       "@/*": [
         "./src/*"
       ]
@@ -30,6 +35,14 @@
     "types": [
       "jest",
       "@testing-library/jest-dom"
+=======
+      "@/*": ["./src/*"]
+    },
+    "types": [
+      "jest",
+      "@testing-library/jest-dom",
+      "node"
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     ],
     "typeRoots": [
       "./node_modules/@types",
@@ -38,6 +51,7 @@
   },
   "include": [
     "next-env.d.ts",
+<<<<<<< HEAD
     ".next/types/**/*.ts",
     "src/types/**/*.d.ts",
     "src/__tests__",
@@ -47,4 +61,13 @@
   "exclude": [
     "node_modules"
   ]
+=======
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "cypress/**/*.ts",
+    "src/types/**/*.d.ts"
+  ],
+  "exclude": ["node_modules"]
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 }

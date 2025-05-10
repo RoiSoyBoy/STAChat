@@ -1,8 +1,15 @@
+<<<<<<< HEAD
 export {};
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '../test-utils';
 import { act } from 'react-dom/test-utils';
 import { ChatWidget } from '@/components/ChatWidget';
+=======
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '../test-utils';
+import { act } from 'react-dom/test-utils';
+import ChatWidget from '@/components/ChatWidget';
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 import { toast } from 'react-toastify';
 import '@testing-library/jest-dom';
 
@@ -22,6 +29,7 @@ global.fetch = jest.fn(() => Promise.resolve({
 
 describe('ChatWidget', () => {
   const defaultProps = {
+<<<<<<< HEAD
     greeting: 'שלום! איך אפשר לעזור?',
     messages: [],
     setMessages: jest.fn(),
@@ -29,6 +37,10 @@ describe('ChatWidget', () => {
       typeMessage: 'הקלד/י הודעה...',
       send: 'שלח',
     },
+=======
+    clientId: 'test-client',
+    primaryColor: '#0066cc',
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
   };
 
   beforeEach(() => {
@@ -38,12 +50,20 @@ describe('ChatWidget', () => {
   });
 
   it('renders the chat button when closed', () => {
+<<<<<<< HEAD
     render(React.createElement(ChatWidget, defaultProps));
+=======
+    render(<ChatWidget {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     expect(screen.getByLabelText('פתח צ\'אט')).toBeInTheDocument();
   });
 
   it('opens the chat window when clicking the button', () => {
+<<<<<<< HEAD
     render(React.createElement(ChatWidget, defaultProps));
+=======
+    render(<ChatWidget {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
     expect(screen.getByLabelText('חלון צ\'אט')).toBeInTheDocument();
   });
@@ -74,7 +94,11 @@ describe('ChatWidget', () => {
       })
     );
 
+<<<<<<< HEAD
     render(React.createElement(ChatWidget, defaultProps));
+=======
+    render(<ChatWidget {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     await waitFor(() => {
@@ -101,7 +125,11 @@ describe('ChatWidget', () => {
       });
     });
 
+<<<<<<< HEAD
     render(React.createElement(ChatWidget, defaultProps));
+=======
+    render(<ChatWidget {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     const input = screen.getByLabelText('תיבת טקסט להודעה');
@@ -119,7 +147,11 @@ describe('ChatWidget', () => {
   it('handles network errors gracefully', async () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
+<<<<<<< HEAD
     render(React.createElement(ChatWidget, defaultProps));
+=======
+    render(<ChatWidget {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     const input = screen.getByLabelText('תיבת טקסט להודעה');
@@ -172,7 +204,11 @@ describe('ChatWidget', () => {
         })
       );
 
+<<<<<<< HEAD
     render(React.createElement(ChatWidget, defaultProps));
+=======
+    render(<ChatWidget {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     await waitFor(() => {
@@ -211,7 +247,11 @@ describe('ChatWidget', () => {
       });
     });
 
+<<<<<<< HEAD
     render(React.createElement(ChatWidget, defaultProps));
+=======
+    render(<ChatWidget {...defaultProps} />);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
     const input = screen.getByLabelText('תיבת טקסט להודעה');

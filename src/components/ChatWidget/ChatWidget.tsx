@@ -1,6 +1,10 @@
 'use client';
 
+<<<<<<< HEAD
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+=======
+import React, { useState, useRef, useEffect } from 'react';
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 import { Dialog } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
@@ -8,7 +12,10 @@ import { RobotIcon } from './RobotIcon';
 import { useTheme } from '@/lib/ThemeContext';
 
 // Animation variants for the chat window
+<<<<<<< HEAD
 
+=======
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 const chatWindowVariants = {
   hidden: (origin: { x: number; y: number }) => ({
     opacity: 0,
@@ -77,15 +84,19 @@ export function ChatWidget({
   const [isClosing, setIsClosing] = useState(false);
   const [inputValue, setInputValue] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
+<<<<<<< HEAD
   const [isTyping, setIsTyping] = useState(false);
   const [displayedAssistantMessage, setDisplayedAssistantMessage] = useState('');
   const [fullAssistantMessage, setFullAssistantMessage] = useState('');
   const [showFull, setShowFull] = useState(false);
   const [typingSpeed, setTypingSpeed] = useState(30); // words per minute
+=======
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0 });
   const { primaryColor } = useTheme();
+<<<<<<< HEAD
   const [lastSources, setLastSources] = useState<any[]>([]);
   const [lastCitationMap, setLastCitationMap] = useState<any>({});
   const [botName, setBotName] = useState('הבוט');
@@ -114,10 +125,13 @@ export function ChatWidget({
     }
     fetchBotSettings();
   }, []);
+=======
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 
   useEffect(() => {
     // Add greeting message if no messages exist
     if (messages.length === 0) {
+<<<<<<< HEAD
       setMessages([{ role: 'assistant', content: introMessage }]);
     }
   }, [introMessage, messages.length, setMessages]);
@@ -147,6 +161,16 @@ export function ChatWidget({
     interval = setInterval(showNext, msPerWord);
     return () => clearInterval(interval);
   }, [isTyping, fullAssistantMessage, typingSpeed]);
+=======
+      setMessages([{ role: 'assistant', content: greeting }]);
+    }
+  }, [greeting, messages.length, setMessages]);
+
+  useEffect(() => {
+    // Scroll to bottom when new messages arrive
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 
   useEffect(() => {
     if (buttonRef.current) {
@@ -168,12 +192,20 @@ export function ChatWidget({
 
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
+<<<<<<< HEAD
     try {
       setIsLoading(true);
+=======
+
+    try {
+      setIsLoading(true);
+      
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
       // Add user message
       const userMessage = { role: 'user', content: inputValue.trim() };
       setMessages(prev => [...prev, userMessage]);
       setInputValue('');
+<<<<<<< HEAD
       setIsTyping(true);
       setDisplayedAssistantMessage('');
       setFullAssistantMessage('');
@@ -210,11 +242,44 @@ export function ChatWidget({
       ]);
       setLastSources([]);
       setLastCitationMap({});
+=======
+
+      // Send to API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage.content }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Add bot response
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: data.response 
+      }]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Add error message to chat
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'על זה אני עדיין לא יכול לענות :( תשאיר הודעה ונחזיר לך תשובה בהקדם!' 
+      }]);
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
     } finally {
       setIsLoading(false);
     }
   };
 
+<<<<<<< HEAD
   // When typing animation finishes, add the full message to messages
   useEffect(() => {
     if (!isTyping && fullAssistantMessage && displayedAssistantMessage === fullAssistantMessage) {
@@ -230,6 +295,8 @@ export function ChatWidget({
     }
   }, [isTyping, displayedAssistantMessage, fullAssistantMessage, setMessages]);
 
+=======
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -237,6 +304,7 @@ export function ChatWidget({
     }
   };
 
+<<<<<<< HEAD
   const handleShowFull = () => {
     setDisplayedAssistantMessage(fullAssistantMessage);
     setIsTyping(false);
@@ -368,6 +436,34 @@ export function ChatWidget({
         )}
         <div ref={messagesEndRef} />
       </div>
+=======
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message, index) => (
+          <motion.div
+            key={index}
+            variants={messageVariants}
+            initial="hidden"
+            animate="visible"
+            className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'}`}
+          >
+            <div
+              className={`max-w-[80%] p-3 rounded-lg ${
+                message.role === 'user'
+                  ? 'bg-blue-500 text-white rounded-tr-none'
+                  : 'bg-gray-100 text-gray-800 rounded-tl-none'
+              }`}
+            >
+              {message.content}
+            </div>
+          </motion.div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
       {/* Input */}
       <div className="border-t p-4 bg-white">
         <div className="flex items-center space-x-2 rtl:space-x-reverse">
@@ -378,12 +474,20 @@ export function ChatWidget({
             placeholder={translations.typeMessage}
             className="flex-1 border rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={1}
+<<<<<<< HEAD
             disabled={isLoading || isTyping}
+=======
+            disabled={isLoading}
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
             dir="rtl"
           />
           <motion.button
             onClick={handleSend}
+<<<<<<< HEAD
             disabled={isLoading || !inputValue.trim() || isTyping}
+=======
+            disabled={isLoading || !inputValue.trim()}
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 transition-opacity"

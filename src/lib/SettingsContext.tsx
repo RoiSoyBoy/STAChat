@@ -2,10 +2,13 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
+<<<<<<< HEAD
 // React context for unified access to chatbot and UI settings throughout the frontend.
 // Provides settings such as color, logo, greeting, botName, tone, avatar, description, introMessage, etc.
 // Used by admin dashboard and chat widget for consistent customization.
 
+=======
+>>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
 interface Settings {
   primaryColor: string;
   greeting: string;
