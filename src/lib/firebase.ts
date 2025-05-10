@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, collection } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import { getAnalytics, isSupported } from 'firebase/analytics';
@@ -25,6 +25,11 @@ let analytics = null;
 if (typeof window !== 'undefined') {
   // Only initialize analytics on the client side
   isSupported().then(yes => yes && (analytics = getAnalytics(app)));
+}
+
+export function userCollection(userId: string, collectionName: string) {
+  // Use client Firestore collection reference
+  return collection(db, `users/${userId}/${collectionName}`);
 }
 
 export { app, db, storage, auth, analytics }; 

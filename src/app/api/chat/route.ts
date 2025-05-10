@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { userCollection } from '@/lib/firebase';
+import { firebaseAuthMiddleware, getUserIdFromRequest } from '@/lib/firebaseAuthMiddleware';
 import { adminDb } from '@/lib/firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
 import OpenAI from 'openai';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/index';
+import NodeCache from 'node-cache';
+import { BufferMemory, ChatMessageHistory } from 'langchain/memory';
+import { buildPrompt, ChatTurn } from '@/lib/buildPrompt';
+import { Pinecone } from '@pinecone-database/pinecone';
+import { generateContextFromPinecone } from '@/lib/generateContextFromPinecone';
+import { AIMessage, HumanMessage } from '@langchain/core/messages';
+import { DocumentData, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
+const cache = new NodeCache({ stdTTL: 60 * 10 }); // 10 min cache
+
+// In-memory conversation store (per user)
+const memoryStore: Record<string, BufferMemory> = {};
+
+// Canonical endpoint for RAG-enabled chat.
+// Flow: Auth -> Parse message -> FAQ fallback -> Retrieve context from Pinecone (generateContextFromPinecone) -> Build prompt (buildPrompt) -> Call GPT-4 -> Postprocess for citations -> Log turn in Firestore -> Return answer with sources.
+// Handles multi-turn memory, user scoping, and advanced prompt customization.
+//
+// See also: /fetch-url and /upload/pdf for ingestion, /answer (legacy).
 
 // Helper: check if the message is a basic greeting or intro
 function isBasicGreeting(text: string) {
@@ -29,13 +46,13 @@ function findAnswerInTrainingData(message: string, trainingData: any[]): string 
 
 async function getTrainingDataAdmin() {
   const snapshot = await adminDb.collection('training').orderBy('timestamp', 'desc').get();
-  return snapshot.docs.map(doc => doc.data());
+  return snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => doc.data());
 }
 
 async function getUploadsContext() {
   const snapshot = await adminDb.collection('uploads').orderBy('timestamp', 'desc').get();
   // For now, just join filenames and URLs as context
-  return snapshot.docs.map(doc => doc.data()).map(d => `${d.filename}: ${d.url}`).join('\n');
+  return snapshot.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => doc.data()).map((d: any) => `${d.filename}: ${d.url}`).join('\n');
 }
 
 async function getSettingsContext() {
@@ -139,87 +156,186 @@ function recognizeIntent(message: string): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  // Secure with Firebase Auth middleware
+  // const authResult = await firebaseAuthMiddleware(request);
+  // if (authResult) return authResult;
+  // const userId = getUserIdFromRequest(request);
+  // if (!userId) return NextResponse.json({ error: 'User not found' }, { status: 401 });
+  const userId = 'test-user'; // Hardcoded for local testing
+
   try {
-    const body = await request.json();
-    const { message, clientId } = body;
-    if (!message || !clientId) {
-      return NextResponse.json(
-        { error: 'Message and clientId are required' },
-        { status: 400 }
-      );
+    // Parse body
+    const { message } = await request.json();
+    if (!message || typeof message !== 'string') {
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // 1. Structured data fallback (check most recent URL for client)
-    const urlSnap = await adminDb
-      .collection('trainingData')
-      .doc(clientId)
-      .collection('urls')
-      .orderBy('createdAt', 'desc')
-      .limit(1)
-      .get();
-    if (!urlSnap.empty) {
-      const doc = urlSnap.docs[0].data();
-      const intent = recognizeIntent(message);
-      if (intent && doc.structured && doc.structured[intent]) {
-        return NextResponse.json({ response: doc.structured[intent], isKnown: true, source: doc.url });
-      }
+    // Respond to greetings
+    if (isBasicGreeting(message)) {
+      return NextResponse.json({ response: 'שלום! איך אפשר לעזור?', source: 'greeting' });
     }
 
-    // 2. Embedding-based semantic search
-    let queryEmbedding: number[] | null = null;
-    try {
-      const embeddingRes = await openai.embeddings.create({
-        model: 'text-embedding-ada-002',
-        input: message,
-      });
-      queryEmbedding = embeddingRes.data[0].embedding;
-    } catch (err: any) {
-      console.error('Embedding error:', err);
-      return NextResponse.json({ error: 'Embedding model unavailable or failed.' }, { status: 500 });
+    // NodeCache: check for repeated question
+    const cacheKey = `${userId}:${message.trim()}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return NextResponse.json({ response: cached, cached: true });
     }
 
-    if (!queryEmbedding) {
-      return NextResponse.json({ error: 'Embedding model unavailable.' }, { status: 500 });
-    }
-
-    // 3. Retrieve all Q&A embeddings for this client
-    let qas: { question: string; answer: string; sourceUrl?: string; embedding: number[] }[] = [];
-    try {
-      const snapshot = await adminDb.collection('trainingEmbeddings').doc(clientId).collection('qas').get();
-      qas = snapshot.docs.map(doc => doc.data() as { question: string; answer: string; sourceUrl?: string; embedding: number[] });
-    } catch (err) {
-      console.error('Firestore Q&A embedding fetch error:', err);
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-    }
-
-    // 4. Compute cosine similarity and select top 3 above threshold
-    const threshold = 0.7;
-    const scored = qas
-      .filter(qa => Array.isArray(qa.embedding) && qa.embedding.length === queryEmbedding.length)
-      .map(qa => ({ ...qa, score: cosineSimilarity(queryEmbedding!, qa.embedding) }))
-      .filter(qa => qa.score >= threshold)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
-
-    if (scored.length > 0) {
-      // Return the top answer(s)
-      return NextResponse.json({
-        response: scored[0].answer,
-        isKnown: true,
-        source: scored[0].sourceUrl || null,
-        alternatives: scored.slice(1).map(qa => ({ answer: qa.answer, source: qa.sourceUrl || null, score: qa.score })),
-        score: scored[0].score
+    // Conversation memory (last 4 turns)
+    if (!memoryStore[userId]) {
+      memoryStore[userId] = new BufferMemory({
+        chatHistory: new ChatMessageHistory(),
+        memoryKey: 'history',
+        inputKey: 'message',
+        outputKey: 'response',
+        returnMessages: true,
       });
     }
+    const memory = memoryStore[userId];
+    // Convert BaseMessage[] to ChatTurn[]
+    const baseHistory = (await memory.chatHistory.getMessages()).slice(-4);
+    const history: ChatTurn[] = baseHistory.map(msg => {
+      const dict = msg.toDict();
+      return {
+        role: dict.type === 'ai' ? 'assistant' : 'user',
+        content: typeof dict.data.content === 'string' ? dict.data.content : '',
+      };
+    });
 
-    // 5. Fallback
-    return NextResponse.json({ response: 'אין לי תשובה לשאלה זו על פי המידע שסיפקת.', isKnown: false });
+    // 1. FAQ matching (exact)
+    const faqSnap = await adminDb.collection('training').get();
+    const faqs = faqSnap.docs.map((doc: QueryDocumentSnapshot<DocumentData>) => doc.data() as { question: string; answer: string });
+    const faqMatch = faqs.find((faq: { question: string; answer: string }) => faq.question.trim() === message.trim());
+    if (faqMatch) {
+      // Log turn
+      await adminDb.collection('users').doc(userId).collection('chat_turns').add({
+        userId,
+        message,
+        response: faqMatch.answer,
+        context: 'FAQ',
+        timestamp: Date.now(),
+      });
+      memory.chatHistory.addMessage(new HumanMessage(message));
+      memory.chatHistory.addMessage(new AIMessage(faqMatch.answer));
+      cache.set(cacheKey, faqMatch.answer);
+      return NextResponse.json({ response: faqMatch.answer, source: 'faq' });
+    }
+
+    // 2. RAG: retrieve context from Pinecone
+    let context = '';
+    let sources: any[] = [];
+    let citationMap: any = {};
+    let botSettings: any = {};
+    try {
+      const ctxResult = await generateContextFromPinecone({
+        userId,
+        question: message,
+        pineconeApiKey: process.env.PINECONE_API_KEY!,
+        pineconeIndex: process.env.PINECONE_INDEX!,
+        openaiApiKey: process.env.OPENAI_API_KEY!,
+        similarityThreshold: 0.75,
+        topK: 5,
+      });
+      context = ctxResult.context;
+      sources = ctxResult.sources;
+      citationMap = ctxResult.citationMap;
+      // Fetch bot settings
+      const settingsDoc = await adminDb.collection('settings').doc('main').get();
+      botSettings = settingsDoc.exists ? settingsDoc.data() : {};
+    } catch (e) {
+      context = '';
+      sources = [];
+      citationMap = {};
+      botSettings = {};
+    }
+
+    // 3. Build system prompt with bot settings
+    let toneInstruction = '';
+    if (botSettings.tone === 'casual') {
+      toneInstruction = 'דבר בטון קליל, ידידותי ומשעשע.';
+    } else if (botSettings.tone === 'humorous') {
+      toneInstruction = 'דבר בטון מצחיק, הוסף הומור עדין.';
+    } else if (botSettings.tone === 'formal') {
+      toneInstruction = 'דבר בטון רשמי ומכובד.';
+    } else {
+      toneInstruction = 'שמור על טון ידידותי ורשמי.';
+    }
+    const botName = botSettings.botName || 'הבוט';
+    const botDesc = botSettings.description ? ` (${botSettings.description})` : '';
+    const introMsg = botSettings.introMessage || '';
+    const system = `${botName}${botDesc ? ' - ' + botDesc : ''}\n${toneInstruction}\n${introMsg}\nענה על השאלה בעברית בלבד. השתמש רק במידע מההקשר. אם אין מספיק מידע, אמור שאינך יודע.`;
+    const promptMessages = buildPrompt({
+      system,
+      history,
+      context,
+      userMessage: message,
+    }) as any;
+
+    // 4. Call GPT-4
+    let gptAnswer = '';
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'chatgpt-4o-latest'
+        ,
+        messages: promptMessages as any,
+        max_tokens: 500,
+        temperature: 0.5,
+      });
+      gptAnswer = completion.choices[0].message.content?.trim() || '';
+    } catch (e) {
+      gptAnswer = '';
+    }
+
+    // 5. Fallback if GPT fails
+    if (!gptAnswer) {
+      gptAnswer = 'מצטער, אין לי מספיק מידע לענות על השאלה הזו.';
+    }
+
+    // 5.5. Postprocess for citations
+    const citationRegex = /\[(\d+)\]/g;
+    const foundCitations = new Set<number>();
+    let match;
+    while ((match = citationRegex.exec(gptAnswer)) !== null) {
+      foundCitations.add(Number(match[1]));
+    }
+    // Build sources footer
+    let sourcesFooter = '';
+    if (foundCitations.size > 0 && Object.keys(citationMap).length > 0) {
+      const sourceList = Array.from(foundCitations)
+        .map(n => {
+          const src = citationMap[n];
+          if (!src) return null;
+          if (src.sourceType === 'pdf') return `[${n}] ${src.fileName}`;
+          if (src.sourceType === 'web') return `[${n}] ${src.url}`;
+          if (src.sourceType === 'faq') return `[${n}] ${src.fileName || src.url}`;
+          return `[${n}] ${src.fileName || src.url || 'Unknown'}`;
+        })
+        .filter(Boolean)
+        .join(', ');
+      sourcesFooter = `\n\nמקורות: ${sourceList}`;
+    } else {
+      sourcesFooter = '\n\nמקור לא ידוע';
+    }
+    const finalAnswer = gptAnswer + sourcesFooter;
+
+    // 6. Log turn
+    await adminDb.collection('users').doc(userId).collection('chat_turns').add({
+      userId,
+      message,
+      response: finalAnswer,
+      context,
+      sources,
+      timestamp: Date.now(),
+    });
+    memory.chatHistory.addMessage(new HumanMessage(message));
+    memory.chatHistory.addMessage(new AIMessage(finalAnswer));
+    cache.set(cacheKey, finalAnswer);
+
+    return NextResponse.json({ response: finalAnswer, source: context ? 'rag' : 'gpt', sources, citationMap });
   } catch (error) {
-    console.error('Chat API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Chat route error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

@@ -85,6 +85,19 @@ describe('API Routes', () => {
       const res = await chatHandler(req);
       expect(res.status).toBe(429);
     });
+
+    it('returns a response and sources for a basic message', async () => {
+      const req = new Request('http://localhost/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
+        body: JSON.stringify({ message: 'מהן שעות הפתיחה?' }),
+      });
+      // You may need to mock Firebase Auth and Firestore for this test in a real setup
+      const res = await chatHandler(req as any);
+      const data = await res.json();
+      expect(data).toHaveProperty('response');
+      expect(data).toHaveProperty('sources');
+    });
   });
 
   describe('/api/messages', () => {

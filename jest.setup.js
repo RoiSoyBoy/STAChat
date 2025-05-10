@@ -1,5 +1,4 @@
 import '@testing-library/jest-dom'
-import '@testing-library/jest-dom/extend-expect'
 
 // Mock window.matchMedia
 window.matchMedia = window.matchMedia || function() {
@@ -52,4 +51,8 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: jest.fn(),
     dispatchEvent: jest.fn(),
   })),
-}); 
+});
+
+// Polyfill for crypto.randomUUID in Jest/JSDOM
+global.crypto = global.crypto || {};
+global.crypto.randomUUID = global.crypto.randomUUID || (() => 'test-uuid-' + Math.random().toString(16).slice(2)); 

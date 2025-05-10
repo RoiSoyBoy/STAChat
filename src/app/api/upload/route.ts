@@ -3,11 +3,19 @@ import { adminDb } from '@/lib/firebase-admin';
 import { getStorage } from 'firebase-admin/storage';
 import { headers } from 'next/headers';
 import { checkRateLimit, getRateLimitResponse } from '@/lib/cache';
+import { userCollection } from '@/lib/firebase';
+import { firebaseAuthMiddleware, getUserIdFromRequest } from '@/lib/firebaseAuthMiddleware';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  // Secure with Firebase Auth middleware
+  const authResult = await firebaseAuthMiddleware(request);
+  if (authResult) return authResult;
+  const userId = getUserIdFromRequest(request);
+  if (!userId) return NextResponse.json({ error: 'User not found' }, { status: 401 });
+
   try {
     // Get client IP for rate limiting
     const headersList = headers();
@@ -20,11 +28,6 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file');
-    const userId = formData.get('userId');
-
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-    }
 
     if (!file || !(file instanceof Blob)) {
       return NextResponse.json(
@@ -73,8 +76,7 @@ export async function POST(request: NextRequest) {
     const url = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
 
     // Save metadata to Firestore
-    await adminDb.collection('uploads').add({
-      userId,
+    await adminDb.collection('users').doc(userId).collection('uploads').add({
       filename,
       url,
       timestamp: Date.now()
