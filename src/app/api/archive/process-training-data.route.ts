@@ -1,3 +1,5 @@
+// TODO: Legacy/dead endpoint. Commented out for migration cleanup. Delete after verifying all ingestion is handled by new endpoints.
+/*
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'edge';
@@ -29,4 +31,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
+*/ 

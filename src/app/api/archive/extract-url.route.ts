@@ -1,8 +1,10 @@
+// TODO: This endpoint overlaps with fetch-url and should be consolidated or removed after migration. See fetch-url for canonical ingestion logic.
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import * as cheerio from 'cheerio';
 import { extractQAFromText, extractQAFromTextWithLLM } from '@/lib/preprocess';
 import OpenAI from 'openai';
+import { chunkText } from '@/lib/chunkText'; // For future chunking needs
 
 export const runtime = 'nodejs';
 

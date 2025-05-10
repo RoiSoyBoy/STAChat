@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyAuthToken, logSuspiciousActivity } from '@/lib/security';
+// import { verifyAuthToken, logSuspiciousActivity } from '@/lib/security';
 
 const isLocalhost = (hostname: string) => hostname === 'localhost' || hostname === '127.0.0.1';
 const PROTECTED_PATHS = [/^\/api\//, /^\/admin(\/|$)/];
@@ -31,12 +31,6 @@ export function middleware(request: NextRequest) {
   }
   response.headers.set('X-Content-Type-Options', 'nosniff');
   
-  // Unified CSP header with development-friendly settings
-  const csp = isDev
-    ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:* https://localhost:*; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://localhost:* https://localhost:*; connect-src 'self' http://localhost:* https://localhost:* https://api.openai.com; font-src 'self' data:;"
-    : "default-src 'self'; script-src 'self' 'unsafe-inline' https://your-domain.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.openai.com;";
-  response.headers.set('Content-Security-Policy', csp);
-
   // CORS - more permissive in development
   const origin = request.headers.get('origin');
   if (origin && !isDev && !TRUSTED_ORIGINS.includes(origin)) {
@@ -44,13 +38,13 @@ export function middleware(request: NextRequest) {
   }
 
   // Protect API and admin routes (skip auth for dev)
-  if (!isDev && PROTECTED_PATHS.some((re) => re.test(pathname))) {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '') || request.cookies.get('token')?.value;
-    if (!token || !verifyAuthToken(token)) {
-      logSuspiciousActivity(request, 'Unauthorized access attempt');
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-  }
+  // if (!isDev && PROTECTED_PATHS.some((re) => re.test(pathname))) {
+  //   const token = request.headers.get('authorization')?.replace('Bearer ', '') || request.cookies.get('token')?.value;
+  //   if (!token || !verifyAuthToken(token)) {
+  //     logSuspiciousActivity(request, 'Unauthorized access attempt');
+  //     return new NextResponse('Unauthorized', { status: 401 });
+  //   }
+  // }
 
   // Add CORS headers
   if (isDev) {

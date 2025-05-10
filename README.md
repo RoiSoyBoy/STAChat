@@ -101,3 +101,49 @@ NewChatBot/
 
 ## 📣 Contact & Support
 For questions, feature requests, or support, open an issue or contact the maintainers.
+
+# NewChatBot Platform
+
+## Folder Structure (2024 Refactor)
+
+```
+src/
+  ingestion/
+    pdf/                # PDF ingestion logic (handlers, helpers)
+    web/                # Web ingestion logic (handlers, helpers)
+    shared/             # Shared utilities: chunkText, embedding, tagging
+      chunkText.ts
+      embedding.ts
+      classifyTagsWithOpenAI.ts
+  chat/                 # Chat logic, prompt helpers, memory
+    prompt/
+  components/           # React components (admin, chat, etc.)
+  __tests__/            # Unit and integration tests
+  api/                  # API routes (import from above)
+  archive/              # Archived legacy endpoints/components
+```
+
+## Canonical Flows
+- **Ingestion:**
+  - `/api/upload/pdf` for PDF documents
+  - `/api/fetch-url` for web URLs (now includes Q&A extraction)
+  - Both use shared chunking, embedding, and tagging utilities
+- **Chat:**
+  - `/api/chat` is the canonical RAG-enabled chat endpoint
+  - Uses context from Pinecone, citations, and settings
+
+## Shared Utilities
+- `src/ingestion/shared/chunkText.ts` — text chunking
+- `src/ingestion/shared/embedding.ts` — OpenAI embeddings
+- `src/ingestion/shared/classifyTagsWithOpenAI.ts` — tag classification
+
+## Archived/Legacy Code
+- See `src/app/api/archive/` and `src/components/archive/` for old endpoints/components
+
+## Running Tests
+- All tests are in `src/__tests__/`
+- Run with: `npm test` or `yarn test`
+- Critical logic (chunking, embedding, tagging, chat) is covered
+
+## Contributing
+See `CONTRIBUTING.md` for guidelines on adding new features, using shared utilities, and safely archiving code.

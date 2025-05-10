@@ -1,3 +1,5 @@
+// TODO: Legacy/test component. Commented out for migration cleanup. Delete after verifying new ChatWidget is canonical.
+/*
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -307,4 +309,5 @@ export function TestChatWidget({ primaryColor, greeting, logoUrl }: TestChatWidg
       )}
     </>
   );
-} 
+}
+*/ 

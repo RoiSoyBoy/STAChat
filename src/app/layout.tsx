@@ -7,10 +7,11 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata = {
   title: "Smart Hebrew Chatbot",
   description: "An intelligent chatbot with RTL support for Israeli businesses",
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-  },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
