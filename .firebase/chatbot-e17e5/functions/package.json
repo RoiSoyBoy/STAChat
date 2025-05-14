@@ -1,0 +1,32 @@
+{
+  "name": "newchatbot",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@firebase/analytics": "0.10.12",
+    "@firebase/app": "0.11.5",
+    "@firebase/auth": "1.10.1",
+    "@firebase/firestore": "4.7.11",
+    "@firebase/storage": "0.13.7",
+    "@headlessui/react": "2.2.2",
+    "@heroicons/react": "2.2.0",
+    "@radix-ui/react-dialog": "1.1.11",
+    "@radix-ui/react-slot": "1.2.0",
+    "firebase": "11.6.1",
+    "formidable": "3.5.4",
+    "framer-motion": "12.9.2",
+    "langchain": "0.3.24",
+    "next": "14.1.0",
+    "openai": "4.96.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-dropzone": "14.3.8",
+    "firebase-frameworks": "^0.11.0",
+    "firebase-functions": "^6.0.1",
+    "firebase-admin": "^11.11.1"
+  },
+  "main": "server.js",
+  "engines": {
+    "node": "20"
+  }
+}

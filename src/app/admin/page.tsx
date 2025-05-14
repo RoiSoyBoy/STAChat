@@ -1,18 +1,5 @@
 'use client';
 
-<<<<<<< HEAD
-import React from 'react';
-import { Card } from '@/components/admin/Card';
-import { FileUpload } from '@/components/admin/FileUpload';
-import UrlManager from '@/components/admin/UrlManager';
-import SettingsForm from '@/components/admin/SettingsForm';
-import IngestUrlButton from './IngestUrlButton';
-
-// TODO: Replace with real userId from auth context
-const userId = 'admin';
-
-export default function AdminDashboard() {
-=======
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/admin/Card';
@@ -37,6 +24,8 @@ export default function AdminDashboard({
   initialColor = '#0066cc',
   initialLogo = '',
 }: AdminDashboardProps) {
+  // TODO: Replace with actual user ID from auth
+  const userId = 'admin';
   const { primaryColor, setPrimaryColor } = useTheme();
   const { updateSettings } = useSettings();
   const [color, setColor] = useState(initialColor);
@@ -124,7 +113,7 @@ export default function AdminDashboard({
     }
   };
 
-  const handleAddUrl = () => {
+  const handleAddUrl = async () => {
     if (!validateUrl(newUrl)) {
       toast.error('כתובת URL לא תקינה');
       return;
@@ -135,11 +124,40 @@ export default function AdminDashboard({
       return;
     }
 
-    setUrls([...urls, newUrl]);
-    setNewUrl('');
+    // Send the URL to the backend for processing
+    try {
+      const response = await fetch('/api/fetch-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // TODO: Add Authorization header if auth is re-enabled
+          // 'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ urls: [newUrl] }), // Send as an array
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to add URL: ${response.statusText}`);
+      }
+
+      const resultData = await response.json();
+      // Check results if needed, e.g., resultData.results[0].status
+      console.log('URL processing result:', resultData);
+
+      // Only add to local state if backend call was successful
+      setUrls([...urls, newUrl]);
+      setNewUrl('');
+      toast.success(`כתובת URL נוספה בהצלחה: ${newUrl}`);
+
+    } catch (error) {
+      console.error('Error adding URL:', error);
+      toast.error(`שגיאה בהוספת כתובת URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const handleRemoveUrl = (urlToRemove: string) => {
+    // TODO: Add backend call to remove/archive the URL data if needed
     setUrls(urls.filter(url => url !== urlToRemove));
   };
 
@@ -257,7 +275,6 @@ export default function AdminDashboard({
     );
   }
 
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 md:px-0 flex flex-col items-center" dir="rtl">
       <div className="w-full max-w-3xl space-y-8">
@@ -266,18 +283,6 @@ export default function AdminDashboard({
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <Card title="הגדרות כלליות">
-<<<<<<< HEAD
-            <SettingsForm userId={userId} />
-          </Card>
-          <Card title="ניהול מסמכים">
-            <FileUpload userId={userId} />
-          </Card>
-        </div>
-        <Card title="רשימת כתובות URL">
-          <UrlManager userId={userId} />
-        </Card>
-        <IngestUrlButton />
-=======
             <div className="space-y-6">
               <div>
                 <label htmlFor="greeting" className="block text-sm font-medium text-gray-700 mb-1">הודעת פתיחה</label>
@@ -340,15 +345,8 @@ export default function AdminDashboard({
             </div>
           </Card>
           <Card title="נתוני אימון">
-            <FileUpload
-              onFilesAdded={(newFiles) => setFiles([...files, ...newFiles])}
-              onFileRemove={(index) => {
-                const newFiles = [...files];
-                newFiles.splice(index, 1);
-                setFiles(newFiles);
-              }}
-              files={files}
-            />
+            {/* FileUpload manages its own state and needs userId */}
+            <FileUpload userId={userId} />
           </Card>
         </div>
         <Card title="רשימת כתובות URL">
@@ -402,8 +400,7 @@ export default function AdminDashboard({
             )}
           </div>
         </Card>
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
       </div>
     </div>
   );
-} 
+}

@@ -1,3 +1,4 @@
+import 'openai/shims/node'; // Add Node fetch shim for OpenAI library
 import { classifyTagsWithOpenAI } from '@/ingestion/shared/classifyTagsWithOpenAI';
 
 describe('classifyTagsWithOpenAI', () => {
@@ -29,4 +30,4 @@ describe('classifyTagsWithOpenAI', () => {
     expect(tags).toContain('general');
     console.error = original;
   });
-}); 
+});

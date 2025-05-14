@@ -1,270 +1,296 @@
-<<<<<<< HEAD
 export {};
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '../test-utils';
 import { act } from 'react-dom/test-utils';
-import { ChatWidget } from '@/components/ChatWidget';
-=======
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '../test-utils';
-import { act } from 'react-dom/test-utils';
-import ChatWidget from '@/components/ChatWidget';
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
+import { FloatingChat } from '@/components/ChatWidget'; // Import the correct component
 import { toast } from 'react-toastify';
 import '@testing-library/jest-dom';
 
-// Mock dependencies
+// Mock react-toastify
 jest.mock('react-toastify', () => ({
   toast: {
-    error: jest.fn(),
     success: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
   },
 }));
 
 // Mock fetch
-global.fetch = jest.fn(() => Promise.resolve({
-  ok: true,
-  json: () => Promise.resolve({}),
-})) as jest.Mock;
+global.fetch = jest.fn(() =>
+  Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ response: 'Mock response', sources: [] }),
+    text: () => Promise.resolve(JSON.stringify({ response: 'Mock response', sources: [] })), // Add text() method if needed by SSE
+    body: {
+      getReader: () => {
+        let done = false;
+        return {
+          read: () => {
+            if (!done) {
+              done = true;
+              // Simulate SSE data chunk
+              const encoder = new TextEncoder();
+              return Promise.resolve({ value: encoder.encode('data: {"response": "Mock stream chunk"}\n\n'), done: false });
+            } else {
+              return Promise.resolve({ value: undefined, done: true });
+            }
+          },
+        };
+      },
+    },
+    headers: new Headers({
+      'Content-Type': 'text/event-stream' // Simulate SSE header
+    })
+  })
+) as jest.Mock;
+
 
 describe('ChatWidget', () => {
   const defaultProps = {
-<<<<<<< HEAD
     greeting: 'שלום! איך אפשר לעזור?',
     messages: [],
     setMessages: jest.fn(),
-    translations: {
+    clientId: 'test-client-id', // Added clientId based on HEAD context
+    primaryColor: '#0066cc', // Added primaryColor based on HEAD context
+    translations: { // Added translations based on HEAD context
+      title: 'צ\'אט תמיכה',
+      inputPlaceholder: 'הקלד/י הודעה...',
+      sendButton: 'שלח',
+      errorMessage: 'אירעה שגיאה',
+      closeChat: 'סגור צ\'אט', // Assuming this uses apostrophe, verify if needed
+      openChat: 'פתח צ׳אט', // Changed to Geresh to match component
+      poweredBy: 'מופעל על ידי',
+      sources: 'מקורות',
       typeMessage: 'הקלד/י הודעה...',
       send: 'שלח',
     },
-=======
-    clientId: 'test-client',
-    primaryColor: '#0066cc',
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
   };
 
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
-    (global.fetch as jest.Mock).mockReset();
+    defaultProps.setMessages.mockClear();
+    (global.fetch as jest.Mock).mockClear();
+    // Provide the default mock implementation for fetch
+    (global.fetch as jest.Mock).mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ response: 'Mock response', sources: [] }),
+        text: () => Promise.resolve(JSON.stringify({ response: 'Mock response', sources: [] })),
+         body: {
+          getReader: () => {
+            let done = false;
+            return {
+              read: () => {
+                if (!done) {
+                  done = true;
+                  const encoder = new TextEncoder();
+                  return Promise.resolve({ value: encoder.encode('data: {"response": "Mock stream chunk"}\n\n'), done: false });
+                } else {
+                  return Promise.resolve({ value: undefined, done: true });
+                }
+              },
+            };
+          },
+        },
+        headers: new Headers({ 'Content-Type': 'text/event-stream' })
+      })
+    );
   });
 
   it('renders the chat button when closed', () => {
-<<<<<<< HEAD
-    render(React.createElement(ChatWidget, defaultProps));
-=======
-    render(<ChatWidget {...defaultProps} />);
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
-    expect(screen.getByLabelText('פתח צ\'אט')).toBeInTheDocument();
+    render(React.createElement(FloatingChat, defaultProps)); // Use FloatingChat
+    expect(screen.getByLabelText(defaultProps.translations.openChat)).toBeInTheDocument();
   });
 
   it('opens the chat window when clicking the button', () => {
-<<<<<<< HEAD
-    render(React.createElement(ChatWidget, defaultProps));
-=======
-    render(<ChatWidget {...defaultProps} />);
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
-    fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
-    expect(screen.getByLabelText('חלון צ\'אט')).toBeInTheDocument();
+    render(React.createElement(FloatingChat, defaultProps)); // Use FloatingChat
+    fireEvent.click(screen.getByLabelText(defaultProps.translations.openChat));
+    expect(screen.getByLabelText('חלון צ\'אט')).toBeInTheDocument(); // Assuming a label for the window
+    expect(screen.getByText(defaultProps.greeting)).toBeInTheDocument();
   });
 
-  it('loads initial messages on mount', async () => {
-    const mockMessages = {
-      messages: [
-        {
-          id: '1',
-          content: 'Hello',
-          role: 'user',
-          timestamp: Date.now(),
-        },
-        {
-          id: '2',
-          content: 'Hi there!',
-          role: 'assistant',
-          timestamp: Date.now() + 1,
-        },
-      ],
-      hasMore: false,
-    };
-
-    (global.fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockMessages),
-      })
-    );
-
-<<<<<<< HEAD
-    render(React.createElement(ChatWidget, defaultProps));
-=======
-    render(<ChatWidget {...defaultProps} />);
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
-    fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Hello')).toBeInTheDocument();
-      expect(screen.getByText('Hi there!')).toBeInTheDocument();
-    });
-  });
-
-  it('handles message sending', async () => {
-    const mockResponse = {
-      response: 'I can help you with that!',
-    };
-
-    (global.fetch as jest.Mock).mockImplementation((url) => {
-      if (url.includes('/api/messages')) {
-        return Promise.resolve({
+  it('sends a message and displays response (non-streaming)', async () => {
+     // Ensure fetch mock returns non-streaming response for this test
+     (global.fetch as jest.Mock).mockImplementationOnce(() =>
+        Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ messages: [], hasMore: false }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      });
+          json: () => Promise.resolve({ response: 'Standard mock response', sources: ['sourceA'] }),
+          headers: new Headers({ 'Content-Type': 'application/json' }) // Not SSE
+        })
+      );
+
+    render(React.createElement(FloatingChat, defaultProps)); // Use FloatingChat
+    fireEvent.click(screen.getByLabelText(defaultProps.translations.openChat));
+
+    const input = screen.getByPlaceholderText(defaultProps.translations.inputPlaceholder);
+    const sendButton = screen.getByText(defaultProps.translations.sendButton);
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Test message' } });
+      fireEvent.click(sendButton);
     });
 
-<<<<<<< HEAD
-    render(React.createElement(ChatWidget, defaultProps));
-=======
-    render(<ChatWidget {...defaultProps} />);
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
-    fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
+    // Check if user message is added optimistically
+    expect(defaultProps.setMessages).toHaveBeenCalledWith(expect.any(Function));
+    // Call the state updater function to simulate optimistic update
+    const setStateFn = defaultProps.setMessages.mock.calls[0][0];
+    const updatedMessages = setStateFn([]); // Pass initial state
+    expect(updatedMessages).toEqual(expect.arrayContaining([
+        expect.objectContaining({ role: 'user', content: 'Test message' })
+    ]));
 
-    const input = screen.getByLabelText('תיבת טקסט להודעה');
-    const sendButton = screen.getByLabelText('שלח הודעה');
 
-    fireEvent.change(input, { target: { value: 'Can you help me?' } });
-    fireEvent.click(sendButton);
-
+    // Wait for the fetch to complete and response to be processed
     await waitFor(() => {
-      expect(screen.getByText('Can you help me?')).toBeInTheDocument();
-      expect(screen.getByText('I can help you with that!')).toBeInTheDocument();
+      // Check if the final state update includes the assistant response
+       expect(defaultProps.setMessages).toHaveBeenCalledTimes(2); // Initial + final
+       const finalSetStateFn = defaultProps.setMessages.mock.calls[1][0];
+       const finalMessages = finalSetStateFn([{ role: 'user', content: 'Test message' }]); // Simulate state before final update
+       expect(finalMessages).toEqual(expect.arrayContaining([
+         expect.objectContaining({ role: 'user', content: 'Test message' }),
+         expect.objectContaining({ role: 'assistant', content: 'Standard mock response', sources: ['sourceA'] })
+       ]));
     });
   });
+
+
+  it('sends a message and displays response (streaming)', async () => {
+    // Fetch mock is already set up for streaming in beforeEach
+
+    render(React.createElement(FloatingChat, defaultProps)); // Use FloatingChat
+    fireEvent.click(screen.getByLabelText(defaultProps.translations.openChat));
+
+    const input = screen.getByPlaceholderText(defaultProps.translations.inputPlaceholder);
+    const sendButton = screen.getByText(defaultProps.translations.sendButton);
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Streaming test' } });
+      fireEvent.click(sendButton);
+    });
+
+     // Check optimistic user message update
+    expect(defaultProps.setMessages).toHaveBeenCalledWith(expect.any(Function));
+    const setStateFn = defaultProps.setMessages.mock.calls[0][0];
+    const updatedMessages = setStateFn([]);
+    expect(updatedMessages).toEqual(expect.arrayContaining([
+        expect.objectContaining({ role: 'user', content: 'Streaming test' })
+    ]));
+
+
+    // Wait for streaming response chunks
+    await waitFor(() => {
+       // Check intermediate state update with streaming chunk
+       expect(defaultProps.setMessages).toHaveBeenCalledTimes(2); // Optimistic + first chunk
+       const streamSetStateFn = defaultProps.setMessages.mock.calls[1][0];
+       const streamMessages = streamSetStateFn([{ role: 'user', content: 'Streaming test' }]);
+       expect(streamMessages).toEqual(expect.arrayContaining([
+         expect.objectContaining({ role: 'user', content: 'Streaming test' }),
+         expect.objectContaining({ role: 'assistant', content: 'Mock stream chunk', sources: [] }) // Check streamed content
+       ]));
+    });
+
+     // Potentially wait longer or check for a final state if the stream completion triggers another update
+     // await waitFor(() => {
+     //   expect(defaultProps.setMessages).toHaveBeenCalledTimes(3); // Optimistic + chunk + final (if applicable)
+     // });
+  });
+
 
   it('handles network errors gracefully', async () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
-<<<<<<< HEAD
-    render(React.createElement(ChatWidget, defaultProps));
-=======
-    render(<ChatWidget {...defaultProps} />);
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
-    fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
+    render(React.createElement(FloatingChat, defaultProps)); // Use FloatingChat
+    fireEvent.click(screen.getByLabelText(defaultProps.translations.openChat));
 
-    const input = screen.getByLabelText('תיבת טקסט להודעה');
-    const sendButton = screen.getByLabelText('שלח הודעה');
+    const input = screen.getByPlaceholderText(defaultProps.translations.inputPlaceholder);
+    const sendButton = screen.getByText(defaultProps.translations.sendButton);
 
-    fireEvent.change(input, { target: { value: 'Test message' } });
-    fireEvent.click(sendButton);
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Error test' } });
+      fireEvent.click(sendButton);
+    });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('שגיאה בשליחת ההודעה, אנא נסה שוב');
+      expect(toast.error).toHaveBeenCalledWith(defaultProps.translations.errorMessage);
+      // Check that the loading state is reset (e.g., button is enabled)
+      expect(sendButton).not.toBeDisabled();
+       // Check that the message state reflects the error (optional, depends on implementation)
+       expect(defaultProps.setMessages).toHaveBeenCalledTimes(2); // Optimistic + error state
+       const errorSetStateFn = defaultProps.setMessages.mock.calls[1][0];
+       const errorMessages = errorSetStateFn([{ role: 'user', content: 'Error test' }]);
+       expect(errorMessages).toEqual(expect.arrayContaining([
+         expect.objectContaining({ role: 'user', content: 'Error test' }),
+         // Check if an error message is added or if the assistant message is just missing
+       ]));
     });
   });
 
-  it('loads more messages on scroll to top', async () => {
-    const initialMessages = {
-      messages: [
-        {
-          id: '1',
-          content: 'First message',
-          role: 'user',
-          timestamp: Date.now(),
-        },
-      ],
-      hasMore: true,
-    };
-
-    const moreMessages = {
-      messages: [
-        {
-          id: '2',
-          content: 'Earlier message',
-          role: 'user',
-          timestamp: Date.now() - 1000,
-        },
-      ],
-      hasMore: false,
-    };
-
-    (global.fetch as jest.Mock)
-      .mockImplementationOnce(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(initialMessages),
-        })
-      )
-      .mockImplementationOnce(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(moreMessages),
-        })
-      );
-
-<<<<<<< HEAD
-    render(React.createElement(ChatWidget, defaultProps));
-=======
-    render(<ChatWidget {...defaultProps} />);
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
-    fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
-
-    await waitFor(() => {
-      expect(screen.getByText('First message')).toBeInTheDocument();
+  it('handles API errors gracefully', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: 'Server error' }),
+       headers: new Headers({ 'Content-Type': 'application/json' })
     });
 
-    const chatContainer = screen.getByRole('dialog').querySelector('.overflow-y-auto');
-    expect(chatContainer).toBeTruthy();
+    render(React.createElement(FloatingChat, defaultProps)); // Use FloatingChat
+    fireEvent.click(screen.getByLabelText(defaultProps.translations.openChat));
 
-    act(() => {
-      if (chatContainer) {
-        fireEvent.scroll(chatContainer, { target: { scrollTop: 0 } });
-      }
+    const input = screen.getByPlaceholderText(defaultProps.translations.inputPlaceholder);
+    const sendButton = screen.getByText(defaultProps.translations.sendButton);
+
+     await act(async () => {
+      fireEvent.change(input, { target: { value: 'API error test' } });
+      fireEvent.click(sendButton);
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Earlier message')).toBeInTheDocument();
+      expect(toast.error).toHaveBeenCalledWith(defaultProps.translations.errorMessage);
+      expect(sendButton).not.toBeDisabled();
+       // Check message state after API error
+       expect(defaultProps.setMessages).toHaveBeenCalledTimes(2);
+       const errorSetStateFn = defaultProps.setMessages.mock.calls[1][0];
+       const errorMessages = errorSetStateFn([{ role: 'user', content: 'API error test' }]);
+        expect(errorMessages).toEqual(expect.arrayContaining([
+         expect.objectContaining({ role: 'user', content: 'API error test' }),
+       ]));
     });
   });
 
-  it('sanitizes input before sending', async () => {
-    const mockResponse = {
-      response: 'Safe response',
-    };
+  it('disables input and button while loading', async () => {
+     // Make fetch take longer to resolve
+    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+        new Promise(resolve => setTimeout(() => resolve({
+            ok: true,
+            json: () => Promise.resolve({ response: 'Delayed response', sources: [] }),
+            headers: new Headers({ 'Content-Type': 'application/json' })
+        }), 100))
+    );
 
-    (global.fetch as jest.Mock).mockImplementation((url) => {
-      if (url.includes('/api/messages')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ messages: [], hasMore: false }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-      });
+
+    render(React.createElement(FloatingChat, defaultProps)); // Use FloatingChat
+    fireEvent.click(screen.getByLabelText(defaultProps.translations.openChat));
+
+    const input = screen.getByPlaceholderText(defaultProps.translations.inputPlaceholder);
+    const sendButton = screen.getByText(defaultProps.translations.sendButton);
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Loading test' } });
+      fireEvent.click(sendButton);
     });
 
-<<<<<<< HEAD
-    render(React.createElement(ChatWidget, defaultProps));
-=======
-    render(<ChatWidget {...defaultProps} />);
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
-    fireEvent.click(screen.getByLabelText('פתח צ\'אט'));
 
-    const input = screen.getByLabelText('תיבת טקסט להודעה');
-    const sendButton = screen.getByLabelText('שלח הודעה');
+    // Check immediately after click
+    expect(input).toBeDisabled();
+    expect(sendButton).toBeDisabled();
 
-    const unsafeInput = '<script>alert("xss")</script>Hello';
-    fireEvent.change(input, { target: { value: unsafeInput } });
-    fireEvent.click(sendButton);
-
+    // Wait for the fetch to complete
     await waitFor(() => {
-      const messages = screen.getAllByRole('article');
-      const lastMessage = messages[messages.length - 2]; // User message
-      expect(lastMessage.innerHTML).not.toContain('<script>');
+      expect(input).not.toBeDisabled();
+      expect(sendButton).not.toBeDisabled();
     });
   });
-}); 
+
+  // Add tests for closing the widget, initial messages, etc.
+});

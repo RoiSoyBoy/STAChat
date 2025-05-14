@@ -1,9 +1,19 @@
+/** @jest-environment node */
 import { NextRequest } from 'next/server';
+
+// Mock firebase-admin/app to prevent initializeApp from running with bad creds
+jest.mock('firebase-admin/app', () => ({
+  getApps: jest.fn(() => [true]), // Simulate app already initialized
+  initializeApp: jest.fn(),
+  cert: jest.fn(),
+}));
+
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { POST as chatHandler } from '@/app/api/chat/route';
 import { GET as messagesHandler } from '@/app/api/messages/route';
 import '@testing-library/jest-dom';
+import { checkRateLimit as mockableCheckRateLimit } from '@/lib/cache'; // Import for mocking
 
 // Mock Firebase Admin
 jest.mock('firebase-admin/auth', () => ({
@@ -31,14 +41,18 @@ jest.mock('firebase-admin/firestore', () => ({
 }));
 
 // Mock cache
-jest.mock('@/lib/cache', () => ({
-  apiLimiter: jest.fn(() => ({ status: 200 })),
-  withCache: jest.fn((_, fn) => fn()),
-  CACHE_KEYS: {
-    CLIENT_CONTEXT: (id: string) => `client_context_${id}`,
-    MESSAGES: (id: string) => `messages_${id}`,
-  },
-}));
+jest.mock('@/lib/cache', () => {
+  const originalCache = jest.requireActual('@/lib/cache');
+  return {
+    ...originalCache, // Spread original module to keep other exports like CACHE_KEYS
+    checkRateLimit: jest.fn(() => true), // Default to not rate-limited
+    getRateLimitResponse: jest.fn(() => ({ status: 429, json: () => Promise.resolve({ error: 'Rate limited' }) })),
+    withCache: jest.fn((_, fn) => fn()), // Keep existing mock for withCache
+    // apiLimiter is not used by chat/route.ts, but keeping if other routes use it.
+    // If not, it can be removed.
+    apiLimiter: jest.fn(() => ({ status: 200 })),
+  };
+});
 
 describe('API Routes', () => {
   beforeEach(() => {
@@ -78,29 +92,30 @@ describe('API Routes', () => {
     });
 
     it('returns 429 when rate limited', async () => {
-      const mockApiLimiter = require('@/lib/cache').apiLimiter as jest.Mock;
-      mockApiLimiter.mockReturnValueOnce({ status: 429 });
+      // Ensure the mock is effective by using the imported (and thus mocked) function
+      (mockableCheckRateLimit as jest.Mock).mockReturnValueOnce(false); // Simulate rate limit exceeded
+      // getRateLimitResponse is globally mocked
 
       const req = mockRequest({ message: 'test', clientId: '123' }, 'valid-token');
       const res = await chatHandler(req);
       expect(res.status).toBe(429);
     });
-<<<<<<< HEAD
 
     it('returns a response and sources for a basic message', async () => {
-      const req = new Request('http://localhost/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-token' },
-        body: JSON.stringify({ message: 'מהן שעות הפתיחה?' }),
-      });
-      // You may need to mock Firebase Auth and Firestore for this test in a real setup
-      const res = await chatHandler(req as any);
+      // Use the mockRequest helper which uses NextRequest
+      const req = mockRequest(
+        { message: 'מהן שעות הפתיחה?', clientId: 'test-client' }, // Added clientId as it's likely required by the handler
+        'test-token'
+      );
+      // Mock verifyIdToken for this specific test if needed
+      (getAuth().verifyIdToken as jest.Mock).mockResolvedValueOnce({ uid: 'test-user' });
+
+      // You may need to mock Firestore calls within chatHandler if they occur
+      const res = await chatHandler(req);
       const data = await res.json();
       expect(data).toHaveProperty('response');
       expect(data).toHaveProperty('sources');
     });
-=======
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
   });
 
   describe('/api/messages', () => {
@@ -175,4 +190,4 @@ describe('API Routes', () => {
       expect(data.messages[0].content).toBe('Hello');
     });
   });
-}); 
+});

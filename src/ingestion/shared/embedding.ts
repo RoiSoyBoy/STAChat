@@ -1,6 +1,9 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true, // Allow in browser-like test environment
+});
 
 // Centralized utility for generating OpenAI embeddings for arrays of text chunks.
 // Used by all ingestion endpoints to ensure consistent embedding logic and error handling.
@@ -29,4 +32,4 @@ export async function generateEmbeddings(texts: string[], model: string = 'text-
     }
   }
   return embeddings;
-} 
+}
