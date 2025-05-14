@@ -1,3 +1,4 @@
+import 'openai/shims/node'; // Add Node fetch shim for OpenAI library
 import { generateEmbeddings } from '@/ingestion/shared/embedding';
 
 describe('generateEmbeddings', () => {
@@ -39,4 +40,4 @@ describe('generateEmbeddings', () => {
     expect(embeddings[0].every((v: number) => v === 0)).toBe(true);
     console.error = original;
   });
-}); 
+});

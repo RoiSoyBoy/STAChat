@@ -1,12 +1,11 @@
-<<<<<<< HEAD
 # New_Chat_Bot
 
 ## 🚀 Overview
 
 A modern, business-agnostic chatbot platform built with Next.js 14 (App Router), TypeScript, Firebase, and OpenAI. The system supports:
 - **Automatic extraction of Q&A pairs** from any business website or uploaded file using generic, language-aware patterns (address, phone, email, hours, etc.).
-- **Retrieval-Augmented Generation (RAG)**: The chat API always answers based only on the extracted Q&A pairs from your uploaded data. If no answer is found, the bot will say so.
-- **Admin dashboard** for uploading URLs/files, managing settings, and viewing all training data in one place.
+- **Retrieval-Augmented Generation (RAG)**: The chat API answers based on the extracted Q&A pairs from your uploaded data. If no answer is found, the bot will say so.
+- **Admin dashboard** for uploading URLs/files, managing settings, and viewing training data.
 - **Extensible and privacy-focused**: No business-specific logic, no backend secrets exposed, and easy to add new Q&A patterns.
 
 ---
@@ -15,139 +14,167 @@ A modern, business-agnostic chatbot platform built with Next.js 14 (App Router),
 
 ```
 NewChatBot/
-├── .firebase/           # Firebase deployment artifacts and cache
-├── .next/               # Next.js build output (local dev/build)
+├── .firebaserc          # Firebase project configuration
+├── .next/               # Next.js build output (typically gitignored)
 ├── cypress/             # Cypress end-to-end tests
-├── pages/               # Legacy Next.js pages/api (migrating to app/)
-├── public/              # Public static assets (uploads, logos, etc.)
+│   ├── e2e/             # E2E test specifications (e.g., chat.cy.ts)
+│   └── support/         # Cypress support files (commands.ts, e2e.ts)
+├── pages/               # Legacy Next.js pages (e.g., pages/api/ingest.ts)
+├── public/              # Public static assets
+│   ├── uploads/         # User-uploaded files (e.g., images, documents)
+│   ├── file.svg         # SVG icons
+│   ├── globe.svg
+│   ├── index.html       # Placeholder HTML (potentially for Firebase Hosting)
+│   ├── next.svg
+│   ├── vercel.svg
+│   ├── widget.js        # Embeddable chat widget script
+│   └── window.svg
 ├── src/                 # Main source code
-│   ├── __tests__/       # Unit and integration tests
-│   ├── app/             # Next.js App Router (main application)
-│   │   ├── admin/       # Admin dashboard UI and logic
-│   │   ├── api/         # API routes (chat, upload, settings, etc.)
-│   │   └── test/        # Test page and related components
-│   ├── components/      # Reusable React components (chat widget, admin, etc.)
-│   ├── lib/             # Utility libraries (Q&A extraction, validation, etc.)
-│   └── types/           # TypeScript type definitions
-├── .env.local           # Local environment variables
-├── README.md            # Project documentation (you're here!)
-└── ...                  # Config, scripts, and other project files
+│   ├── __tests__/       # Unit and integration tests (Jest)
+│   ├── app/             # Next.js App Router (main application UI and API)
+│   │   ├── admin/       # Admin dashboard (page.tsx, layout.tsx, IngestUrlButton.tsx)
+│   │   ├── api/         # API routes (App Router)
+│   │   │   ├── archive/ # Archived API endpoints (answer.route.ts, etc.)
+│   │   │   ├── chat/    # Main chat API (route.ts)
+│   │   │   ├── fetch-url/ # Fetch URL for ingestion API (route.ts)
+│   │   │   ├── generate-embed/ # Embedding generation API (route.ts)
+│   │   │   ├── messages/ # Messages API (route.ts)
+│   │   │   ├── process-training-data/ # Training data processing API (route.ts)
+│   │   │   ├── settings/ # Settings management API (route.ts)
+│   │   │   ├── sse/     # Server-Sent Events API (route.ts)
+│   │   │   └── upload/  # File upload API (route.ts, pdf/route.ts)
+│   │   ├── (root files) # Root app files (layout.tsx, page.tsx, globals.css, error.tsx)
+│   │   ├── sse/         # SSE test page UI (page.tsx)
+│   │   └── test/        # General test page UI (page.tsx, layout.tsx)
+│   ├── chat/            # Core chat-related logic
+│   │   └── prompt/      # Prompt engineering templates and helpers
+│   ├── components/      # Reusable React components
+│   │   ├── admin/       # Admin-specific components (Card.tsx, FileUpload.tsx, SettingsForm.tsx)
+│   │   ├── archive/     # Archived UI components
+│   │   ├── ChatWidget/  # Main chat widget UI and logic
+│   │   ├── TestChatWidget/ # Test chat widget components
+│   │   └── ...          # Other shared components (ClientRoot.tsx, RootLayoutClient.tsx)
+│   ├── ingestion/       # Data ingestion and processing logic
+│   │   ├── pdf/         # PDF specific ingestion logic
+│   │   ├── shared/      # Shared utilities (chunkText.ts, embedding.ts, classifyTagsWithOpenAI.ts)
+│   │   └── web/         # Web/URL specific ingestion logic
+│   ├── lib/             # Core libraries, utilities, and business logic
+│   │   ├── firebase.ts  # Firebase setup and core utilities
+│   │   ├── firecrawl.ts # Firecrawl integration for web scraping
+│   │   ├── preprocess.ts# Q&A and text preprocessing logic
+│   │   ├── rag.ts       # Retrieval-Augmented Generation logic
+│   │   ├── SettingsContext.tsx # React context for settings
+│   │   └── ...          # Other utilities (validation, context, cache, etc.)
+│   └── types/           # TypeScript type definitions (e.g., for external libraries)
+├── .env.local           # Local environment variables (gitignored)
+├── CONTRIBUTING.md      # Contribution guidelines
+├── firebase.json        # Firebase configuration (hosting, functions, firestore rules, etc.)
+├── jest.config.js       # Jest test runner configuration
+├── next.config.js       # Next.js project configuration
+├── package.json         # Project dependencies and NPM scripts
+├── README.md            # Project documentation (this file)
+├── tailwind.config.js   # TailwindCSS configuration
+├── tsconfig.json        # TypeScript compiler configuration
+└── ...                  # Other config files (ESLint, PostCSS, .gitignore, etc.)
 ```
 
 ---
 
 ## ⚙️ How It Works
 
-### 1. **Q&A Extraction (Business-Agnostic)**
-- When you upload a URL or file, the backend extracts all visible text.
-- The system uses **generic regex patterns** to identify common business information:
-  - כתובת (address)
-  - טלפון (phone)
-  - מייל (email)
-  - שעות פתיחה (opening hours)
-  - אתר אינטרנט (website)
-  - וואטסאפ, פייסבוק, אינסטגרם (social links)
-  - משלוחים, חניה, נגישות, דרושים, זכיינות, אודות ועוד
-- For each match, a Q&A pair is generated (e.g., "מה הטלפון?" → "03-1234567").
-- All Q&A pairs are saved to Firestore and used for chat answers.
+### 1. **Data Ingestion & Q&A Extraction**
+- **Sources**: URLs (via `src/app/api/fetch-url/route.ts`) or Files (PDFs via `src/app/api/upload/pdf/route.ts`).
+- **Content Extraction**: Uses tools like Firecrawl (`src/lib/firecrawl.ts`) for web content.
+- **Preprocessing**: Text is processed using `src/lib/preprocess.ts` and chunked using `src/ingestion/shared/chunkText.ts`.
+- **Q&A Generation**: Generic regex patterns identify common business information (address, phone, email, hours, etc.) to create Q&A pairs.
+- **Embeddings**: Text chunks and/or Q&A pairs are converted into vector embeddings using `src/ingestion/shared/embedding.ts` (e.g., with OpenAI).
+- **Storage**: Q&A pairs, embeddings, and source data are typically stored in Firestore and a vector database (e.g., Pinecone).
 
 ### 2. **Chat API (RAG)**
-- When a user asks a question, the API searches all Q&A pairs for relevant matches (using keyword search).
-- Only the most relevant Q&A pairs are sent as context to the LLM (OpenAI), with a strict prompt: "Answer ONLY from the following Q&A. If you don't know, say so."
-- If no answer is found, the bot responds: "אין לי תשובה לשאלה זו על פי המידע שסיפקת."
-- No business-specific logic or backend secrets are ever exposed.
+- **Endpoint**: `src/app/api/chat/route.ts`
+- **Context Retrieval**: When a user asks a question, the API performs a vector search (e.g., `src/lib/vectorSearch.ts` or `src/lib/generateContextFromPinecone.ts`) on the stored embeddings to find relevant information.
+- **Prompt Engineering**: The retrieved context is combined with the user's question and a carefully crafted prompt (see `src/chat/prompt/` and `src/lib/buildPrompt.ts`).
+- **LLM Interaction**: The combined prompt is sent to an LLM (e.g., OpenAI) with instructions to answer *only* from the provided context.
+- **Response**: If relevant information is found, the LLM generates an answer. Otherwise, the bot indicates it doesn't have the answer based on the provided data.
 
 ### 3. **Admin Dashboard**
-- Upload URLs or files for training (all data is processed for Q&A extraction).
-- See all uploaded URLs and their extracted data, regardless of session or user.
-- Real-time feedback, error handling, and loading states for a smooth admin experience.
+- **Location**: `src/app/admin/`
+- **Functionality**: Allows users to upload URLs/files for training, manage application settings (e.g., appearance, model parameters), and view ingested data.
+- **Real-time Updates**: Provides feedback on ingestion processes, error handling, and loading states.
 
 ---
 
-## 🧩 Extensibility & Contributing
+## 🛠️ Key Shared Utilities & Modules
+
+- **Text Chunking**: `src/ingestion/shared/chunkText.ts`
+- **Embeddings Generation**: `src/ingestion/shared/embedding.ts` (utilizing OpenAI)
+- **Tag Classification**: `src/ingestion/shared/classifyTagsWithOpenAI.ts` (for categorizing content)
+- **Q&A Preprocessing**: `src/lib/preprocess.ts`
+- **RAG Core Logic**: `src/lib/rag.ts`
+- **Web Scraping**: `src/lib/firecrawl.ts`
+- **Firebase Integration**: `src/lib/firebase.ts`, `src/lib/firebase-admin.ts`
+
+---
+
+## 🗄️ Archived & Legacy Code
+
+- **API Endpoints**: `src/app/api/archive/`
+- **Components**: `src/components/archive/`
+- **Pages**: The `pages/` directory (e.g., `pages/api/ingest.ts`) contains older Next.js pages/api routes.
+
+---
+
+## 🧩 Extensibility
 
 ### Adding New Q&A Patterns
-- To support more business types or info, add new regex patterns and Q&A logic in `src/lib/preprocess.ts`.
-- Patterns should be generic and not tied to any specific business.
-- PRs for new patterns, languages, or business verticals are welcome!
+- Modify regex patterns and Q&A generation logic in `src/lib/preprocess.ts`.
+- Ensure patterns are generic and not business-specific.
 
 ### Privacy & Security
-- The system never exposes backend-only data or secrets.
-- All Q&A is generated only from uploaded/public data.
+- The system is designed to avoid exposing backend-only data or secrets.
+- Q&A generation relies solely on the data provided through uploads or public URLs.
 
-### Testing & Development
-- Run `npm run dev` for local development.
-- Use the admin dashboard to upload new data and test chat responses.
-- All code is TypeScript, tested with Jest and Cypress.
+---
+
+## 🧪 Testing & Development
+
+### Running the Development Server
+- Execute `npm run dev` to start the Next.js development server.
+- Access the application locally (typically `http://localhost:3000`).
+- Use the admin dashboard to upload data and test chat responses.
+
+### Running Tests
+- **Unit/Integration Tests (Jest)**:
+  - Test files are located in `src/__tests__/`.
+  - Run with `npm test` or `yarn test`.
+  - Critical logic (chunking, embedding, tagging, chat, API endpoints) should be covered.
+- **End-to-End Tests (Cypress)**:
+  - Test files are in `cypress/e2e/`.
+  - Configuration in `cypress.config.ts`.
+  - Run with a script like `npm run cypress:open` or `npm run cypress:run` (check `package.json` for specific scripts).
 
 ---
 
 ## 📝 Notes
-- All UI is RTL-friendly, modern, and responsive (TailwindCSS).
-- The chat widget is embeddable and floats at the bottom right.
-- Admin dashboard allows real-time settings updates (color, logo, greeting, training data).
-- All backend logic is handled via Next.js API routes, with Firebase for storage and authentication.
-- Environment variables and secrets are managed via `.env.local`.
+- UI is RTL-friendly, modern, and responsive, built with TailwindCSS.
+- The chat widget is designed to be embeddable.
+- Admin dashboard allows real-time settings updates.
+- Backend logic is primarily handled via Next.js App Router API routes.
+- Firebase is used for data storage (Firestore), and potentially authentication and hosting.
+- Environment variables are managed via `.env.local` (ensure this file is in `.gitignore`).
 
 ---
 
 ## 👥 Contributing
-
-1. Fork the repo and create a feature branch.
-2. Add or improve Q&A extraction patterns in `src/lib/preprocess.ts`.
-3. Test your changes locally (see Testing & Development above).
-4. Open a PR with a clear description of your changes and why they're useful for generic business chatbots.
+Please refer to `CONTRIBUTING.md` for detailed guidelines on:
+- Setting up the development environment.
+- Coding standards and practices.
+- Adding new features or Q&A patterns.
+- Using shared utilities.
+- Safely archiving or refactoring code.
+- Submitting pull requests.
 
 ---
 
 ## 📣 Contact & Support
-For questions, feature requests, or support, open an issue or contact the maintainers.
-
-# NewChatBot Platform
-
-## Folder Structure (2024 Refactor)
-
-```
-src/
-  ingestion/
-    pdf/                # PDF ingestion logic (handlers, helpers)
-    web/                # Web ingestion logic (handlers, helpers)
-    shared/             # Shared utilities: chunkText, embedding, tagging
-      chunkText.ts
-      embedding.ts
-      classifyTagsWithOpenAI.ts
-  chat/                 # Chat logic, prompt helpers, memory
-    prompt/
-  components/           # React components (admin, chat, etc.)
-  __tests__/            # Unit and integration tests
-  api/                  # API routes (import from above)
-  archive/              # Archived legacy endpoints/components
-```
-
-## Canonical Flows
-- **Ingestion:**
-  - `/api/upload/pdf` for PDF documents
-  - `/api/fetch-url` for web URLs (now includes Q&A extraction)
-  - Both use shared chunking, embedding, and tagging utilities
-- **Chat:**
-  - `/api/chat` is the canonical RAG-enabled chat endpoint
-  - Uses context from Pinecone, citations, and settings
-
-## Shared Utilities
-- `src/ingestion/shared/chunkText.ts` — text chunking
-- `src/ingestion/shared/embedding.ts` — OpenAI embeddings
-- `src/ingestion/shared/classifyTagsWithOpenAI.ts` — tag classification
-
-## Archived/Legacy Code
-- See `src/app/api/archive/` and `src/components/archive/` for old endpoints/components
-
-## Running Tests
-- All tests are in `src/__tests__/`
-- Run with: `npm test` or `yarn test`
-- Critical logic (chunking, embedding, tagging, chat) is covered
-
-## Contributing
-See `CONTRIBUTING.md` for guidelines on adding new features, using shared utilities, and safely archiving code.
-=======
-# New_Chat_Bot
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
+For questions, feature requests, or support, please open an issue on the project's GitHub repository or contact the maintainers.

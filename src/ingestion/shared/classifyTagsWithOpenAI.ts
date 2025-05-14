@@ -1,6 +1,23 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Ensure this module is only used on the server-side
+if (typeof window !== 'undefined') {
+  throw new Error('OpenAI client should only be initialized on the server side.');
+}
+
+const apiKey = process.env.OPENAI_API_KEY;
+
+if (!apiKey) {
+  console.error('ERROR: OPENAI_API_KEY environment variable is not defined.');
+  throw new Error('CRITICAL: OPENAI_API_KEY is missing. Please set it in your environment variables.');
+} else {
+  console.log('OpenAI API Key loaded successfully (first few chars):', apiKey.substring(0, 5) + '...');
+}
+
+const openai = new OpenAI({
+  apiKey: apiKey,
+  // dangerouslyAllowBrowser: true, // Allow in browser-like test environment - Removed due to server-side only enforcement
+});
 
 // Centralized utility for classifying text chunks with OpenAI to generate tags.
 // Used by all ingestion endpoints to ensure consistent tag generation and normalization.
@@ -20,9 +37,10 @@ function normalizeTag(tag: string): string {
 
 export async function classifyTagsWithOpenAI(text: string): Promise<string[]> {
   const prompt = `Analyze this content and return 3-5 concise classification tags in English.\nContent:\n"""${text.slice(0, 2000)}"""\nTags (comma separated):`;
+  console.log('Classifying tags with OpenAI for text snippet:', text.substring(0, 50) + '...');
   try {
     const completion = await openai.chat.completions.create({
-      model: 'chatgpt-4o-latest',
+      model: 'chatgpt-4o-latest', // Consider making the model configurable via env var
       messages: [
         { role: 'system', content: 'You are a helpful assistant that classifies business content.' },
         { role: 'user', content: prompt },
@@ -31,6 +49,7 @@ export async function classifyTagsWithOpenAI(text: string): Promise<string[]> {
       temperature: 0.2,
     });
     const raw = completion.choices[0].message.content || '';
+    console.log('OpenAI raw response for tag classification:', raw);
     // Extract tags: split by comma, normalize, filter empty
     let tags = raw
       .replace(/tags\s*[:：]/i, '')
@@ -45,8 +64,15 @@ export async function classifyTagsWithOpenAI(text: string): Promise<string[]> {
       return ['general', 'uncategorized'];
     }
     return tags;
-  } catch (e) {
-    console.error('Error classifying tags:', e);
+  } catch (e: any) {
+    console.error('Error classifying tags with OpenAI:', e.message);
+    if (e.status === 401) {
+      console.error('OpenAI API returned 401 Unauthorized. Check your API key and organization ID.');
+    }
+    // Optionally, log more details from the error object if available
+    // if (e.response && e.response.data) {
+    //   console.error('OpenAI API error details:', e.response.data);
+    // }
     return ['general', 'uncategorized'];
   }
-} 
+}

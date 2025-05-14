@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
 import { adminDb } from '@/lib/firebase-admin';
-import { extractMainContentFromHtml } from '@/lib/extractMainContentFromHtml';
-import axios from 'axios';
+// import { extractMainContentFromHtml } from '@/lib/extractMainContentFromHtml'; // Replaced by Firecrawl
+// import axios from 'axios'; // Replaced by Firecrawl fetch
+import { fetchFirecrawlData } from '@/lib/firecrawl'; // Import Firecrawl fetch function
 import { OpenAI } from 'openai';
 import { Pinecone } from '@pinecone-database/pinecone';
 import { classifyTagsWithOpenAI } from '@/lib/classifyTagsWithOpenAI';
@@ -21,6 +22,7 @@ export const dynamic = 'force-dynamic';
 
 // Helper: Check if URL already processed for user
 async function isUrlIndexed(userId: string, url: string): Promise<boolean> {
+  console.log(`[Auth] Checking if URL is indexed for userId: ${userId}, url: ${url}`);
   const snapshot = await adminDb
     .collection('web_uploads')
     .where('userId', '==', userId)
@@ -31,34 +33,89 @@ async function isUrlIndexed(userId: string, url: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  console.log(`[API /api/fetch-url] Received POST request. Headers:`, JSON.stringify(Object.fromEntries(req.headers.entries())));
   try {
-    // For local testing, skip auth and use a test user
-    // const authHeader = req.headers.get('authorization');
-    // if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    //   return NextResponse.json({ error: 'Missing or invalid auth token' }, { status: 401 });
+    const authHeader = req.headers.get('authorization');
+    let userId = 'test-user'; // Default for local testing
+
+    // --- Authentication ---
+    // if (process.env.NODE_ENV !== 'development' || (authHeader && authHeader.startsWith('Bearer '))) {
+    //   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    //     console.error('[Auth] Missing or invalid auth token.');
+    //     return NextResponse.json({ error: 'Missing or invalid auth token' }, { status: 401 });
+    //   }
+    //   const idToken = authHeader.split(' ')[1];
+    //   try {
+    //     console.log('[Auth] Verifying ID token...');
+    //     const decoded = await getAuth().verifyIdToken(idToken);
+    //     userId = decoded.uid;
+    //     console.log(`[Auth] Token verified. UserId: ${userId}`);
+    //     if (!userId) {
+    //       console.error('[Auth] UserID not found in decoded token.');
+    //       return NextResponse.json({ error: 'User not found after token verification' }, { status: 401 });
+    //     }
+    //   } catch (e: any) {
+    //     console.error('[Auth] Invalid or expired auth token:', e.message);
+    //     return NextResponse.json({ error: 'Invalid or expired auth token', details: e.message }, { status: 401 });
+    //   }
+    // } else {
+    //   console.log('[Auth] Skipping auth for local development, using test-user.');
     // }
-    // const idToken = authHeader.split(' ')[1];
-    // let decoded;
-    // try {
-    //   decoded = await getAuth().verifyIdToken(idToken);
-    // } catch (e) {
-    //   return NextResponse.json({ error: 'Invalid or expired auth token' }, { status: 401 });
-    // }
-    // const userId = decoded.uid;
-    // if (!userId) {
-    //   return NextResponse.json({ error: 'User not found' }, { status: 401 });
-    // }
-    const userId = 'test-user';
+    console.log(`[Auth] Using effective UserId: ${userId}`);
+
 
     // Parse body
-    const { urls } = await req.json();
-    if (!Array.isArray(urls) || urls.some((u) => typeof u !== 'string')) {
-      return NextResponse.json({ error: 'Invalid URLs' }, { status: 400 });
+    let urls;
+    try {
+      const body = await req.json();
+      urls = body.urls;
+      console.log('[API /api/fetch-url] Parsed request body:', body);
+    } catch (e: any) {
+      console.error('[API /api/fetch-url] Error parsing JSON body:', e.message);
+      return NextResponse.json({ error: 'Invalid JSON body', details: e.message }, { status: 400 });
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-    const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
-    const index = pinecone.index(process.env.PINECONE_INDEX!).namespace(`user-${userId}`);
+    if (!Array.isArray(urls) || urls.some((u) => typeof u !== 'string')) {
+      console.error('[API /api/fetch-url] Invalid URLs in request:', urls);
+      return NextResponse.json({ error: 'Invalid URLs format' }, { status: 400 });
+    }
+
+    // --- Environment Variable Checks ---
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const pineconeApiKey = process.env.PINECONE_API_KEY;
+    const pineconeIndexName = process.env.PINECONE_INDEX;
+    const firecrawlApiKey = process.env.FIRECRAWL_API_KEY; // Check here as well
+
+    if (!openaiApiKey) {
+      console.error('ERROR: OPENAI_API_KEY environment variable is not defined in /api/fetch-url.');
+      throw new Error('CRITICAL: OPENAI_API_KEY is missing for /api/fetch-url.');
+    } else {
+      console.log('[API /api/fetch-url] OpenAI API Key loaded.');
+    }
+    if (!pineconeApiKey) {
+      console.error('ERROR: PINECONE_API_KEY environment variable is not defined in /api/fetch-url.');
+      throw new Error('CRITICAL: PINECONE_API_KEY is missing for /api/fetch-url.');
+    } else {
+      console.log('[API /api/fetch-url] Pinecone API Key loaded.');
+    }
+    if (!pineconeIndexName) {
+      console.error('ERROR: PINECONE_INDEX environment variable is not defined in /api/fetch-url.');
+      throw new Error('CRITICAL: PINECONE_INDEX is missing for /api/fetch-url.');
+    } else {
+      console.log('[API /api/fetch-url] Pinecone Index Name loaded.');
+    }
+    if (!firecrawlApiKey) {
+      // This check is also in `fetchFirecrawlData`, but good for early exit.
+      console.error('ERROR: FIRECRAWL_API_KEY environment variable is not defined (checked in /api/fetch-url).');
+      throw new Error('CRITICAL: FIRECRAWL_API_KEY is missing for /api/fetch-url.');
+    } else {
+      console.log('[API /api/fetch-url] Firecrawl API Key loaded (checked in /api/fetch-url).');
+    }
+
+
+    const openai = new OpenAI({ apiKey: openaiApiKey });
+    const pinecone = new Pinecone({ apiKey: pineconeApiKey });
+    const index = pinecone.index(pineconeIndexName).namespace(`user-${userId}`);
 
     const results: Array<{ url: string; status: string; chunkCount: number; error?: string }> = [];
 
@@ -78,28 +135,36 @@ export async function POST(req: NextRequest) {
           await adminDb.collection('web_uploads').add(logEvent);
           continue;
         }
-        // Fetch content
-        let html: string;
+        // Fetch content using Firecrawl
+        let firecrawlResult;
         try {
-          const resp = await axios.get(url, { timeout: 15000 });
-          html = resp.data;
-        } catch (e) {
-          results.push({ url, status: 'error', chunkCount: 0, error: 'unreachable' });
+          console.log(`[API /api/fetch-url] Attempting to fetch Firecrawl data for URL: ${url}`);
+          // Use the fetchFirecrawlData function from src/lib/firecrawl.ts
+          firecrawlResult = await fetchFirecrawlData(url);
+          console.log(`[API /api/fetch-url] Firecrawl result for ${url}:`, JSON.stringify(firecrawlResult, null, 2).substring(0, 500) + '...'); // Log snippet
+        } catch (e: any) {
+          console.error(`[API /api/fetch-url] Firecrawl fetch call failed for ${url}:`, e.message);
+          // The detailed error (including 401) should be logged by fetchFirecrawlData itself.
+          results.push({ url, status: 'error', chunkCount: 0, error: `firecrawl fetch failed: ${e.message}` });
           logEvent.status = 'error';
-          logEvent.error = 'unreachable';
+          logEvent.error = `firecrawl fetch failed: ${e.message}`;
           await adminDb.collection('web_uploads').add(logEvent);
           continue;
         }
-        // Extract main content
-        const mainText = extractMainContentFromHtml(html);
+
+        // Extract main content from Firecrawl result (Cloud API returns content as a string)
+        const mainText = typeof firecrawlResult?.content === 'string' ? firecrawlResult.content : '';
+
         if (!mainText || mainText.length < 100) {
-          results.push({ url, status: 'error', chunkCount: 0, error: 'no content' });
+          // Add the actual result to the log for debugging lack of content
+          console.log(`[DEBUG] Insufficient content from Firecrawl for ${url}:`, JSON.stringify(firecrawlResult, null, 2));
+          results.push({ url, status: 'error', chunkCount: 0, error: 'no content from firecrawl' });
           logEvent.status = 'error';
-          logEvent.error = 'no content';
+          logEvent.error = 'no content from firecrawl';
           await adminDb.collection('web_uploads').add(logEvent);
           continue;
         }
-        // Chunk text
+        // Chunk text (This block was duplicated, removing the second instance)
         const chunks = chunkText(mainText);
         if (chunks.length === 0) {
           results.push({ url, status: 'error', chunkCount: 0, error: 'no chunks' });
@@ -188,10 +253,12 @@ export async function POST(req: NextRequest) {
         }));
         try {
           await index.upsert(vectors);
-        } catch (e) {
-          results.push({ url, status: 'error', chunkCount: 0, error: 'pinecone error' });
+        } catch (e: any) { // Added : any type for error object
+          // Log the specific Pinecone error
+          console.error(`Pinecone upsert failed for ${url}:`, e);
+          results.push({ url, status: 'error', chunkCount: 0, error: `pinecone error: ${e.message || e}` });
           logEvent.status = 'error';
-          logEvent.error = 'pinecone error';
+          logEvent.error = `pinecone error: ${e.message || e}`; // Log specific error message
           await adminDb.collection('web_uploads').add(logEvent);
           continue;
         }
@@ -215,20 +282,28 @@ export async function POST(req: NextRequest) {
         logEvent.chunkCount = chunks.length;
         logEvent.completedAt = Date.now();
         await adminDb.collection('web_uploads').add(logEvent);
-        results.push({ url, status: 'success', chunkCount: chunks.length });
       } catch (err: any) {
+        // Log the specific error to the server console for debugging
+        console.error(`Processing failed for ${url}:`, err);
         results.push({ url, status: 'error', chunkCount: 0, error: 'internal error' });
         logEvent.status = 'error';
-        logEvent.error = 'internal error';
+        // Add more specific error info to the Firestore log
+        logEvent.error = `internal error: ${err.message || err}`;
         await adminDb.collection('web_uploads').add(logEvent);
       }
-    }
+    } // End of for loop
+
+    // Removed the extra closing brace here
 
     return NextResponse.json({ results });
-  } catch (error) {
-    console.error('Fetch URL error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (error: any) { // This catch now correctly belongs to the main try block
+    console.error('[API /api/fetch-url] Top-level error in POST handler:', error.message, error.stack);
+    // Ensure a response is always sent
+    if (error.message.includes('CRITICAL:')) { // For API key errors we threw
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'Internal server error in /api/fetch-url', details: error.message }, { status: 500 });
   }
 }
 
-// TODO: Remove extract-url after confirming all clients use fetch-url and Q&A extraction is working as expected. 
+// TODO: Remove extract-url after confirming all clients use fetch-url and Q&A extraction is working as expected.

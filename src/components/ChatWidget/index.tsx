@@ -53,6 +53,7 @@ export function FloatingChat() {
             exit="hidden"
             className="w-full h-[70vh] bg-white rounded-t-2xl shadow-lg overflow-hidden flex flex-col border border-gray-200"
             style={{ backgroundColor: 'rgba(255,255,255,0.97)' }}
+            aria-label="חלון צ'אט" // Added aria-label
           >
             {/* Header with logo and title */}
             <div className="p-4 flex items-center justify-between border-b bg-gradient-to-l from-blue-600 to-blue-400" style={{ backgroundColor: chatColor }}>
@@ -95,10 +96,4 @@ export function FloatingChat() {
       </motion.button>
     </div>
   );
-<<<<<<< HEAD
 }
-
-export { ChatWidget } from './ChatWidget'; 
-=======
-} 
->>>>>>> 502a28d6c8291d45390920c28c5032ac146e2c02
