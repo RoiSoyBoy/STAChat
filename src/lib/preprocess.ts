@@ -1,6 +1,9 @@
 import OpenAI from "openai";
 import { chunkText } from '@/lib/chunkText'; // Import chunkText
+<<<<<<< HEAD
 import { cleanString } from '@/lib/textUtils'; // Import cleanString
+=======
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
 
 export interface QA {
   question: string;
@@ -219,6 +222,7 @@ export async function extractQAFromTextWithLLM(text: string): Promise<QA[]> {
   let allLlmQAs: QA[] = [];
 
   for (let i = 0; i < textChunks.length; i++) {
+<<<<<<< HEAD
     const originalChunk = textChunks[i];
     // Clean the chunk to remove URLs before sending to LLM
     const cleanedChunk = cleanString(originalChunk);
@@ -226,11 +230,21 @@ export async function extractQAFromTextWithLLM(text: string): Promise<QA[]> {
     const prompt = `הטקסט הבא הוא קטע (${i + 1}/${textChunks.length}) מתוך מידע רחב יותר. הפק שאלות ותשובות שימושיות ללקוח פוטנציאלי מהקטע הזה בלבד, בפורמט JSON של מערך אובייקטים. לדוגמה: [{"question": "שאלה כלשהי", "answer": "תשובה רלוונטית"}, {"question": "שאלה עם \\"מירכאות\\" פנימיות", "answer": "תשובה עם עוד \\"טקסט\\" פנימי"}]. הקפד על פורמט JSON תקין, ובפרט על שימוש ב-\\" (백슬래시 ואחריו מירכאות כפולות) עבור כל מירכאות כפולות שמופיעות בתוך ערכי טקסט (string values). התוכן של שדות ה-question וה-answer חייב להיות טקסט פשוט בלבד, ללא עיצוב Markdown כלשהו (כגון ** או _). התמקד במידע המוסבר ישירות בקטע זה. הימנע מיצירת שאלות ותשובות העוסקות בעיקר בקישורים חיצוניים או בדפים אחרים המוזכרים, אלא אם הקישור עצמו הוא חלק מרכזי מהמידע הנדון בקטע. אל תמציא מידע, אל תענה על שאלות שאין להן תשובה בקטע הטקסט. ענה בעברית בלבד.\n\n---\nקטע טקסט:\n${cleanedChunk}\n---`;
     
     console.log(`[extractQAFromTextWithLLM] Processing chunk ${i + 1}/${textChunks.length} with LLM (original length: ${originalChunk.length}, cleaned length: ${cleanedChunk.length})...`);
+=======
+    const chunk = textChunks[i];
+    const prompt = `הטקסט הבא הוא קטע (${i + 1}/${textChunks.length}) מתוך מידע רחב יותר. הפק שאלות ותשובות שימושיות ללקוח פוטנציאלי מהקטע הזה בלבד, בפורמט JSON של מערך אובייקטים (לדוגמה: [{"question": "שאלה כלשהי", "answer": "תשובה רלוונטית"}, ...]). אל תמציא מידע, אל תענה על שאלות שאין להן תשובה בקטע הטקסט. ענה בעברית בלבד.\n\n---\nקטע טקסט:\n${chunk}\n---`;
+    
+    console.log(`[extractQAFromTextWithLLM] Processing chunk ${i + 1}/${textChunks.length} with LLM...`);
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
     try {
       const completion = await openai.chat.completions.create({
         model: process.env.OPENAI_MODEL || 'gpt-4o',
         messages: [
+<<<<<<< HEAD
           { role: 'system', content: 'אתה עוזר שמחלץ שאלות ותשובות רלוונטיות מקטע טקסט נתון, בפורמט JSON. הקפד על הפורמט ועל תוכן טקסט פשוט ללא Markdown בערכים.' },
+=======
+          { role: 'system', content: 'אתה עוזר שמחלץ שאלות ותשובות רלוונטיות מקטע טקסט נתון, בפורמט JSON. הקפד על הפורמט.' },
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
           { role: 'user', content: prompt },
         ],
         temperature: 0.0,
@@ -241,6 +255,7 @@ export async function extractQAFromTextWithLLM(text: string): Promise<QA[]> {
       
       const jsonMatch = rawResponse.match(/(\[[\s\S]*\])/);
       if (jsonMatch && jsonMatch[0]) {
+<<<<<<< HEAD
         let jsonStrToParse = jsonMatch[0];
         // Attempt to remove backslashes before markdown characters like *, _, ~, `
         // as they can cause "Bad escaped character" if LLM tries to escape markdown.
@@ -248,6 +263,10 @@ export async function extractQAFromTextWithLLM(text: string): Promise<QA[]> {
 
         try {
           const chunkQAs: QA[] = JSON.parse(jsonStrToParse);
+=======
+        try {
+          const chunkQAs: QA[] = JSON.parse(jsonMatch[0]);
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
           if (Array.isArray(chunkQAs)) {
             allLlmQAs.push(...chunkQAs);
             console.log(`[extractQAFromTextWithLLM] Successfully parsed ${chunkQAs.length} QAs from chunk ${i + 1}.`);
@@ -255,7 +274,11 @@ export async function extractQAFromTextWithLLM(text: string): Promise<QA[]> {
             console.warn(`[extractQAFromTextWithLLM] Parsed JSON from chunk ${i + 1} is not an array.`);
           }
         } catch (parseError: any) {
+<<<<<<< HEAD
           console.error(`[extractQAFromTextWithLLM] JSON parsing failed for chunk ${i + 1}: ${parseError.message}. Attempted to parse: ${jsonStrToParse}`);
+=======
+          console.error(`[extractQAFromTextWithLLM] JSON parsing failed for chunk ${i + 1}: ${parseError.message}. Raw response: ${rawResponse}`);
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
         }
       } else {
         console.warn(`[extractQAFromTextWithLLM] No JSON array found in LLM response for chunk ${i + 1}. Raw response: ${rawResponse}`);

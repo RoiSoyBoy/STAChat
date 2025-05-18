@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app'; // Import getApp and getApps
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth'; // Import getAuth
@@ -14,6 +15,23 @@ const firebaseConfig = {
 
 // Initialize Firebase
 export let app: FirebaseApp | undefined;
+=======
+import { initializeApp, getApp, getApps } from 'firebase/app'; // Import getApp and getApps
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth'; // Import getAuth
+
+const firebaseConfig = {
+  apiKey: '',
+  authDomain: '',
+  projectId: '',
+  storageBucket: '',
+  messagingSenderId: '',
+  appId: '',
+};
+
+// Initialize Firebase
+let app;
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
@@ -22,4 +40,7 @@ if (!getApps().length) {
 
 export const db = getFirestore(app);
 export const auth = getAuth(app); // Initialize and export auth
+<<<<<<< HEAD
 export const storage = getStorage(app); // Initialize and export storage
+=======
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e

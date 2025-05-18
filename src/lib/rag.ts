@@ -17,7 +17,11 @@ Answer in detail using the context above.
 `;
 
   const completion = await openai.chat.completions.create({
+<<<<<<< HEAD
     model: 'gpt-4.1-nano-2025-04-14',
+=======
+    model: 'chatgpt-4o-latest',
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
     messages: [{ role: 'user', content: prompt }],
   });
 

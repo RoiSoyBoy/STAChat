@@ -40,7 +40,11 @@ export async function classifyTagsWithOpenAI(text: string): Promise<string[]> {
   console.log('Classifying tags with OpenAI for text snippet:', text.substring(0, 50) + '...');
   try {
     const completion = await openai.chat.completions.create({
+<<<<<<< HEAD
       model: 'gpt-4.1-nano-2025-04-14', // Consider making the model configurable via env var
+=======
+      model: 'chatgpt-4o-latest', // Consider making the model configurable via env var
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
       messages: [
         { role: 'system', content: 'You are a helpful assistant that classifies business content.' },
         { role: 'user', content: prompt },

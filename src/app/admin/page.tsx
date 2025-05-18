@@ -126,10 +126,13 @@ export default function AdminDashboard({
 
     // Send the URL to the backend for processing
     try {
+<<<<<<< HEAD
       const requestedUrl = newUrl; // URL being sent
       const timestamp = new Date().toISOString();
       console.log(`[CLIENT_FETCH_WRAPPER] Requesting URL: ${requestedUrl} at ${timestamp}`);
 
+=======
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
       const response = await fetch('/api/fetch-url', {
         method: 'POST',
         headers: {
@@ -147,6 +150,7 @@ export default function AdminDashboard({
 
       const resultData = await response.json();
       // Check results if needed, e.g., resultData.results[0].status
+<<<<<<< HEAD
       // console.log('URL processing result:', resultData); // Original log
 
       const contentPreview = resultData.results && resultData.results[0] && typeof resultData.results[0].status === 'string' 
@@ -170,6 +174,17 @@ export default function AdminDashboard({
 
     } catch (error) {
       console.error(`[CLIENT_FETCH_WRAPPER] Error for ${newUrl}:`, error); // Log newUrl as requestedUrl might be out of scope
+=======
+      console.log('URL processing result:', resultData);
+
+      // Only add to local state if backend call was successful
+      setUrls([...urls, newUrl]);
+      setNewUrl('');
+      toast.success(`כתובת URL נוספה בהצלחה: ${newUrl}`);
+
+    } catch (error) {
+      console.error('Error adding URL:', error);
+>>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
       toast.error(`שגיאה בהוספת כתובת URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
