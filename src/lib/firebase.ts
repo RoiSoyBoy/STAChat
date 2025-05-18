@@ -1,37 +1,21 @@
-<<<<<<< HEAD
-import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app'; // Import getApp and getApps
+import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth'; // Import getAuth
-import { getStorage } from 'firebase/storage'; // Import getStorage
+import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
+// These values should be stored in your .env.local file
+// e.g., NEXT_PUBLIC_FIREBASE_API_KEY=your_actual_api_key
 const firebaseConfig = {
-  apiKey: 'AIzaSyCcGNgfhlKRKbLu_iHuIClQIi8iFjc-gJ4',
-  authDomain: 'chatbot-e17e5.firebaseapp.com',
-  projectId: 'chatbot-e17e5',
-  storageBucket: 'chatbot-e17e5.firebasestorage.app',
-  messagingSenderId: '645388218849',
-  appId: '1:645388218849:web:bbc6138ecd13c8ff31e2a0',
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
-export let app: FirebaseApp | undefined;
-=======
-import { initializeApp, getApp, getApps } from 'firebase/app'; // Import getApp and getApps
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth'; // Import getAuth
-
-const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
-};
-
-// Initialize Firebase
-let app;
->>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
+let app: FirebaseApp; // Changed from 'export let app: FirebaseApp | undefined;' for consistency
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
@@ -39,8 +23,6 @@ if (!getApps().length) {
 }
 
 export const db = getFirestore(app);
-export const auth = getAuth(app); // Initialize and export auth
-<<<<<<< HEAD
-export const storage = getStorage(app); // Initialize and export storage
-=======
->>>>>>> 9d194f71cdf42ba32f59c9aaaa34ae15fb36543e
+export const auth = getAuth(app);
+export const storage = getStorage(app);
+export { app }; // Export app if needed elsewhere
