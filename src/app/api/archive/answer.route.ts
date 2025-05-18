@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     let gptAnswer = '';
     try {
       const completion = await openai.chat.completions.create({
-        model: 'chatgpt-4o-latest',
+        model: 'gpt-4.1-nano-2025-04-14',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question },

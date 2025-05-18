@@ -126,6 +126,10 @@ export default function AdminDashboard({
 
     // Send the URL to the backend for processing
     try {
+      const requestedUrl = newUrl; // URL being sent
+      const timestamp = new Date().toISOString();
+      console.log(`[CLIENT_FETCH_WRAPPER] Requesting URL: ${requestedUrl} at ${timestamp}`);
+
       const response = await fetch('/api/fetch-url', {
         method: 'POST',
         headers: {
@@ -143,15 +147,29 @@ export default function AdminDashboard({
 
       const resultData = await response.json();
       // Check results if needed, e.g., resultData.results[0].status
-      console.log('URL processing result:', resultData);
+      // console.log('URL processing result:', resultData); // Original log
 
+      const contentPreview = resultData.results && resultData.results[0] && typeof resultData.results[0].status === 'string' 
+        ? `Status: ${resultData.results[0].status}, Chunks: ${resultData.results[0].chunkCount}` 
+        : JSON.stringify(resultData).substring(0, 200) + '...';
+      
+      console.log(`[CLIENT_FETCH_WRAPPER] Response for ${requestedUrl}: ${contentPreview}`);
+      
       // Only add to local state if backend call was successful
-      setUrls([...urls, newUrl]);
-      setNewUrl('');
-      toast.success(`כתובת URL נוספה בהצלחה: ${newUrl}`);
+      // Assuming success if response.ok was true and no error was thrown before this.
+      // The backend result structure is { results: Array<{ url: string; status: string; chunkCount: number; error?: string }> }
+      if (resultData.results && resultData.results[0] && resultData.results[0].status !== 'error') {
+        setUrls([...urls, requestedUrl]);
+        setNewUrl('');
+        toast.success(`כתובת URL נוספה בהצלחה: ${requestedUrl}`);
+      } else if (resultData.results && resultData.results[0] && resultData.results[0].error) {
+        // If backend indicates an error for the specific URL processing
+        throw new Error(resultData.results[0].error);
+      }
+      // If resultData.results is not as expected, the generic error handling below will catch it or response.ok already did.
 
     } catch (error) {
-      console.error('Error adding URL:', error);
+      console.error(`[CLIENT_FETCH_WRAPPER] Error for ${newUrl}:`, error); // Log newUrl as requestedUrl might be out of scope
       toast.error(`שגיאה בהוספת כתובת URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };

@@ -17,7 +17,7 @@ Answer in detail using the context above.
 `;
 
   const completion = await openai.chat.completions.create({
-    model: 'chatgpt-4o-latest',
+    model: 'gpt-4.1-nano-2025-04-14',
     messages: [{ role: 'user', content: prompt }],
   });
 

@@ -1,7 +1,5 @@
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from './firebase';
-
-const db = getFirestore(app);
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 export async function getClientContext(clientId: string): Promise<string> {
   try {
@@ -17,4 +15,4 @@ export async function getClientContext(clientId: string): Promise<string> {
     console.error('Error fetching client context:', error);
     return '';
   }
-} 
+}
