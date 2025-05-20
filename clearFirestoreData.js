@@ -1,10 +1,9 @@
 // clearFirestoreData.js
 require('dotenv').config({ path: '.env.local' }); // Load .env.local
-const { adminDb } = require('./src/lib/firebase-admin'); // Assuming firebase-admin is initialized here
+const { adminDb } = require('./src/lib/firebaseAdmin'); // Assuming firebase-admin is initialized here
 const readline = require('readline');
 
 const USER_ID_TO_CLEAR = 'test-user';
-
 // Helper function to delete all documents in a collection
 async function deleteCollection(collectionPath, batchSize = 50) { // Reduced batchSize to 50
   const collectionRef = adminDb.collection(collectionPath);
