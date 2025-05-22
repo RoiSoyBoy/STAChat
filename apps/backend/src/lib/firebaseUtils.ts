@@ -11,8 +11,8 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from './firebase';
-import { ChatMessage, ChatSettings, TrainingData } from './types';
+import { db, storage } from './firebase'; // Should resolve to apps/backend/src/lib/firebase.ts
+import { ChatMessage, ChatSettings, TrainingData } from './types'; // Should resolve to apps/backend/src/lib/types.ts
 
 // Chat Messages
 export async function saveMessage(message: Omit<ChatMessage, 'id'>) {
@@ -47,6 +47,7 @@ export async function getSettings(): Promise<ChatSettings> {
   if (docSnap.exists()) {
     return docSnap.data() as ChatSettings;
   }
+  // Default settings if none found
   return {
     primaryColor: '#0F172A',
     greeting: 'שלום! איך אוכל לעזור?',
@@ -82,6 +83,8 @@ export async function getTrainingData() {
 }
 
 // File Upload
+// TODO: This function uses the browser 'File' type.
+// For backend use, it needs adaptation (e.g., to accept a file path or buffer and read metadata).
 export async function uploadFile(file: File) {
   const storageRef = ref(storage, `uploads/${Date.now()}_${file.name}`);
   await uploadBytes(storageRef, file);

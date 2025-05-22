@@ -1,3 +1,5 @@
+import OpenAI from 'openai';
+
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -13,13 +15,14 @@ export function buildPrompt({
   history: ChatTurn[];
   context: string;
   userMessage: string;
-}): { role: string; content: string }[] {
-  const messages: { role: string; content: string }[] = [];
+}): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
   if (system) {
     messages.push({ role: 'system', content: system });
   }
   if (history && history.length > 0) {
     for (const turn of history) {
+      // ChatTurn role is 'user' | 'assistant', which is compatible
       messages.push({ role: turn.role, content: turn.content });
     }
   }
@@ -31,4 +34,4 @@ ${context}
   }
   messages.push({ role: 'user', content: userMessage });
   return messages;
-} 
+}

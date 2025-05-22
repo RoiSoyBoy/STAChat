@@ -44,4 +44,4 @@ export function validateFileUpload(file: File): { isValid: boolean; error?: stri
   }
 
   return { isValid: true };
-} 
+}

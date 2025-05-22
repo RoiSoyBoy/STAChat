@@ -25,6 +25,21 @@ export async function firecrawlCrawl(url: string, maxDepth = 2, limit = 100) {
   return res.data;
 }
 
+export async function firecrawlScrape(url: string) {
+  const res = await axios.post('http://localhost:3000/firecrawl_scrape', {
+    url,
+    formats: ['markdown'],
+    onlyMainContent: true,
+    waitFor: 1000,
+    timeout: 30000,
+    mobile: false,
+    includeTags: ['article', 'main'],
+    excludeTags: ['nav', 'footer'],
+    skipTlsVerification: false,
+  });
+  return res.data;
+}
+
 export async function firecrawlBatchScrape(urls: string[]) {
   const res = await axios.post('http://localhost:3000/firecrawl_batch_scrape', {
     urls,
@@ -34,4 +49,4 @@ export async function firecrawlBatchScrape(urls: string[]) {
     },
   });
   return res.data;
-} 
+}

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { auth } from '@/lib/firebase'; // Assuming Firebase is initialized here
+import { postChatMessage } from '../../services/apiClient'; // Import the centralized API call function
 
 interface Message {
   role: string;
@@ -50,7 +51,7 @@ export function ChatMessages({ greeting, translations }: ChatMessagesProps) {
       } else if (process.env.NODE_ENV === 'test') {
         // Mock for test environment if not present (though jest.setup.js should handle this)
         console.log('Mocking scrollIntoView for ChatMessages in test');
-        (messagesEndRef.current as any).scrollIntoView = jest.fn();
+        (messagesEndRef.current as any).scrollIntoView = () => {}; // Replaced jest.fn() for non-test type safety
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }
@@ -90,27 +91,24 @@ export function ChatMessages({ greeting, translations }: ChatMessagesProps) {
         console.warn('ChatMessages: No current user. Sending request without Authorization header.');
       }
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({ message: userMessage.content, clientId }),
+      // Use the centralized API client function
+      // Note: The getAuthToken logic within apiClient.ts will be used.
+      // The Authorization header logic here in ChatMessages.tsx might become redundant
+      // or could be removed if fully handled by apiClient.ts's getAuthToken.
+      // For now, we'll let apiClient.ts handle token attachment.
+      const data = await postChatMessage({
+        message: userMessage.content,
+        clientId: clientId as string, // Ensure clientId is passed as string
       });
-
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({ error: 'Failed to send message, unknown server error' }));
-        console.error('ChatMessages: API response not OK', response.status, errorBody);
-        throw new Error(errorBody.error || `API Error: ${response.status}`);
-      }
       
-      const data = await response.json();
-      if (data.error) {
-        console.error('ChatMessages: API returned an error in data:', data.error);
-        throw new Error(data.error);
-      }
       // Add bot response
+      // The postChatMessage function already returns the parsed JSON data (ChatResponseBody)
+      // and throws an error if the request failed, so data.error check might be less needed here
+      // if the API consistently uses HTTP error statuses.
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
     } catch (error: any) {
       console.error('ChatMessages: Error in handleSend:', error.message);
+      // The error message from postChatMessage will be more specific.
       setMessages(prev => [...prev, { role: 'assistant', content: `מצטער, אירעה שגיאה: ${error.message}` }]);
     } finally {
       setIsLoading(false);

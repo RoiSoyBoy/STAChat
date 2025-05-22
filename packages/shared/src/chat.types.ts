@@ -12,6 +12,7 @@ export interface ChatMessageDTO {
  */
 export interface ChatRequestBody {
   message: string;
+  clientId: string; // Added clientId
   history?: ChatMessageDTO[]; // Optional: previous conversation messages
   // You might add other parameters like conversationId, specific model preferences, etc.
 }
@@ -31,7 +32,7 @@ export interface SourceDocumentDTO {
  * Response body for the POST /api/v1/chat endpoint.
  */
 export interface ChatResponseBody {
-  reply: string;
+  response: string; // Changed 'reply' to 'response' for consistency with frontend usage
   conversationId?: string; // Optional: if you manage conversations
   sourceDocuments?: SourceDocumentDTO[];
   error?: string; // In case of partial success or specific non-fatal errors

@@ -12,146 +12,151 @@
 
   ## 🗂️ Project Structure
 
+  This project is a monorepo managed with npm workspaces, separating concerns into frontend, backend, and shared packages.
+
   ```
   NewChatBot/
-  ├── .firebaserc          # Firebase project configuration
-  ├── .next/               # Next.js build output (typically gitignored)
-  ├── cypress/             # Cypress end-to-end tests
-  │   ├── e2e/             # E2E test specifications (e.g., chat.cy.ts)
-  │   └── support/         # Cypress support files (commands.ts, e2e.ts)
-  ├── pages/               # Legacy Next.js pages (e.g., pages/api/ingest.ts)
-  ├── public/              # Public static assets
-  │   ├── uploads/         # User-uploaded files (e.g., images, documents)
-  │   ├── file.svg         # SVG icons
-  │   ├── globe.svg
-  │   ├── index.html       # Placeholder HTML (potentially for Firebase Hosting)
-  │   ├── next.svg
-  │   ├── vercel.svg
-  │   ├── widget.js        # Embeddable chat widget script
-  │   └── window.svg
-  ├── src/                 # Main source code
-  │   ├── __tests__/       # Unit and integration tests (Jest)
-  │   ├── app/             # Next.js App Router (main application UI and API)
-  │   │   ├── admin/       # Admin dashboard (page.tsx, layout.tsx, IngestUrlButton.tsx)
-  │   │   ├── api/         # API routes (App Router)
-  │   │   │   ├── archive/ # Archived API endpoints (answer.route.ts, etc.)
-  │   │   │   ├── chat/    # Main chat API (route.ts)
-  │   │   │   ├── fetch-url/ # Fetch URL for ingestion API (route.ts)
-  │   │   │   ├── generate-embed/ # Embedding generation API (route.ts)
-  │   │   │   ├── messages/ # Messages API (route.ts)
-  │   │   │   ├── process-training-data/ # Training data processing API (route.ts)
-  │   │   │   ├── settings/ # Settings management API (route.ts)
-  │   │   │   ├── sse/     # Server-Sent Events API (route.ts)
-  │   │   │   └── upload/  # File upload API (route.ts, pdf/route.ts)
-  │   │   ├── (root files) # Root app files (layout.tsx, page.tsx, globals.css, error.tsx)
-  │   │   ├── sse/         # SSE test page UI (page.tsx)
-  │   │   └── test/        # General test page UI (page.tsx, layout.tsx)
-  │   ├── chat/            # Core chat-related logic
-  │   │   └── prompt/      # Prompt engineering templates and helpers
-  │   ├── components/      # Reusable React components
-  │   │   ├── admin/       # Admin-specific components (Card.tsx, FileUpload.tsx, SettingsForm.tsx)
-  │   │   ├── archive/     # Archived UI components
-  │   │   ├── ChatWidget/  # Main chat widget UI and logic
-  │   │   ├── TestChatWidget/ # Test chat widget components
-  │   │   └── ...          # Other shared components (ClientRoot.tsx, RootLayoutClient.tsx)
-  │   ├── ingestion/       # Data ingestion and processing logic
-  │   │   ├── pdf/         # PDF specific ingestion logic
-  │   │   ├── shared/      # Shared utilities (chunkText.ts, embedding.ts, classifyTagsWithOpenAI.ts)
-  │   │   └── web/         # Web/URL specific ingestion logic
-  │   ├── lib/             # Core libraries, utilities, and business logic
-  │   │   ├── firebase.ts  # Firebase setup and core utilities
-  │   │   ├── firecrawl.ts # Firecrawl integration for web scraping
-  │   │   ├── preprocess.ts# Q&A and text preprocessing logic
-  │   │   ├── rag.ts       # Retrieval-Augmented Generation logic
-  │   │   ├── SettingsContext.tsx # React context for settings
-  │   │   └── ...          # Other utilities (validation, context, cache, etc.)
-  │   └── types/           # TypeScript type definitions (e.g., for external libraries)
-  ├── .env.local           # Local environment variables (gitignored)
-  ├── CONTRIBUTING.md      # Contribution guidelines
-  ├── firebase.json        # Firebase configuration (hosting, functions, firestore rules, etc.)
-  ├── jest.config.js       # Jest test runner configuration
-  ├── next.config.js       # Next.js project configuration
-  ├── package.json         # Project dependencies and NPM scripts
-  ├── README.md            # Project documentation (this file)
-  ├── tailwind.config.js   # TailwindCSS configuration
-  ├── tsconfig.json        # TypeScript compiler configuration
-  └── ...                  # Other config files (ESLint, PostCSS, .gitignore, etc.)
+  ├── apps/
+  │   ├── backend/                  # Backend application (e.g., Express.js, NestJS)
+  │   │   ├── package.json
+  │   │   ├── tsconfig.json
+  │   │   ├── src/
+  │   │   │   ├── api/              # API routes organized by version and resource
+  │   │   │   │   └── v1/
+  │   │   │   │       ├── archive/  # Archived API endpoints
+  │   │   │   │       ├── chat/     # Chat-related API endpoints
+  │   │   │   │       ├── classify-tags/
+  │   │   │   │       ├── delete-document/
+  │   │   │   │       ├── faqs/
+  │   │   │   │       ├── fetch-url/
+  │   │   │   │       ├── generate-embed/
+  │   │   │   │       ├── ingest-google-sheet/
+  │   │   │   │       ├── messages/
+  │   │   │   │       ├── process-pdf/
+  │   │   │   │       ├── process-training-data/
+  │   │   │   │       ├── settings/
+  │   │   │   │       ├── sse/
+  │   │   │   │       └── upload/   # File upload API (placeholders, needs implementation)
+  │   │   │   ├── config/           # Configuration files (e.g., OpenAI client)
+  │   │   │   ├── lib/              # Core backend libraries and business logic
+  │   │   │   │   ├── ingestion/    # Data ingestion specific logic
+  │   │   │   │   └── ...           # (embedding, RAG, Firebase Admin, Firecrawl, etc.)
+  │   │   │   ├── middleware/       # Custom Express middleware (auth, tenant context)
+  │   │   │   └── server.ts         # Backend server entry point
+  │   │   └── ...                   # (scripts, .env, etc.)
+  │   └── frontend/                 # Next.js frontend application
+  │       ├── package.json
+  │       ├── tsconfig.json
+  │       ├── next.config.js
+  │       ├── public/               # Static assets (images, widget.js)
+  │       ├── src/
+  │       │   ├── app/              # Next.js App Router (pages, layouts)
+  │       │   ├── components/       # Reusable React components
+  │       │   ├── lib/              # Frontend-specific libraries (Firebase client, contexts)
+  │       │   ├── services/         # API client for frontend-backend communication
+  │       │   ├── types/            # Frontend-specific TypeScript definitions
+  │       │   └── __tests__/        # Frontend unit/integration tests
+  │       └── ...                   # (.env.local, middleware.ts for Next.js, etc.)
+  ├── packages/
+  │   └── shared/                   # Shared utilities and types
+  │       ├── package.json
+  │       └── src/
+  │           ├── *.types.ts        # Shared TypeScript type definitions
+  │           ├── *.ts              # Shared utility functions (e.g., chunkText)
+  │           └── __tests__/        # Tests for shared utilities
+  ├── cypress/                      # Cypress end-to-end tests
+  ├── pages/                        # Legacy Next.js pages (e.g., pages/api/ingest.ts) - Review if still needed
+  ├── .firebaserc                   # Firebase project configuration
+  ├── firebase.json                 # Firebase configuration (hosting, functions, firestore rules, etc.)
+  ├── jest.config.js                # Jest test runner configuration
+  ├── package.json                  # Root monorepo package.json (workspaces, global scripts)
+  ├── README.md                     # Project documentation (this file)
+  ├── tsconfig.json                 # Root TypeScript compiler configuration
+  └── ...                           # Other config files (ESLint, PostCSS, .gitignore, etc.)
   ```
+
+  This project has been refactored from a monolithic Next.js application into a more scalable monorepo structure.
 
   ---
 
   ## ⚙️ How It Works
 
-  ### 1. **Data Ingestion & Q&A Extraction**
-  - **Sources**: URLs (via `src/app/api/fetch-url/route.ts`) or Files (PDFs via `src/app/api/upload/pdf/route.ts`).
-  - **Content Extraction**: Uses tools like Firecrawl (`src/lib/firecrawl.ts`) for web content.
-  - **Preprocessing**: Text is processed using `src/lib/preprocess.ts` and chunked using `src/ingestion/shared/chunkText.ts`.
-  - **Q&A Generation**: Generic regex patterns identify common business information (address, phone, email, hours, etc.) to create Q&A pairs.
-  - **Embeddings**: Text chunks and/or Q&A pairs are converted into vector embeddings using `src/ingestion/shared/embedding.ts` (e.g., with OpenAI).
-  - **Storage**: Q&A pairs, embeddings, and source data are typically stored in Firestore and a vector database (e.g., Pinecone).
+  ### 1. **Data Ingestion & Q&A Extraction (Backend)**
+  - **Sources**: URLs (via `apps/backend/src/api/v1/fetch-url/`) or Files (PDFs via `apps/backend/src/api/v1/upload/pdf/`).
+  - **Content Extraction**: Uses tools like Firecrawl (`apps/backend/src/lib/firecrawl.ts`) for web content.
+  - **Preprocessing**: Text is processed using `apps/backend/src/lib/preprocess.ts` and chunked using `packages/shared/src/chunkText.ts`.
+  - **Q&A Generation**: Generic regex patterns identify common business information to create Q&A pairs.
+  - **Embeddings**: Text chunks and/or Q&A pairs are converted into vector embeddings using `apps/backend/src/lib/embedding.ts` (e.g., with OpenAI).
+  - **Storage**: Q&A pairs, embeddings, and source data are typically stored in Firestore and a vector database (e.g., Pinecone), managed by the backend.
 
-  ### 2. **Chat API (RAG)**
-  - **Endpoint**: `src/app/api/chat/route.ts`
-  - **Context Retrieval**: When a user asks a question, the API performs a vector search (e.g., `src/lib/vectorSearch.ts` or `src/lib/generateContextFromPinecone.ts`) on the stored embeddings to find relevant information.
-  - **Prompt Engineering**: The retrieved context is combined with the user's question and a carefully crafted prompt (see `src/chat/prompt/` and `src/lib/buildPrompt.ts`).
-  - **LLM Interaction**: The combined prompt is sent to an LLM (e.g., OpenAI) with instructions to answer *only* from the provided context.
+  ### 2. **Chat API (RAG) (Backend)**
+  - **Endpoint**: `apps/backend/src/api/v1/chat/`
+  - **Context Retrieval**: When a user asks a question, the API performs a vector search (e.g., `apps/backend/src/lib/vectorSearch.ts` or `apps/backend/src/lib/generateContextFromPinecone.ts`) on the stored embeddings.
+  - **Prompt Engineering**: The retrieved context is combined with the user's question and a carefully crafted prompt (see `apps/backend/src/lib/buildPrompt.ts`).
+  - **LLM Interaction**: The combined prompt is sent to an LLM (e.g., OpenAI, configured in `apps/backend/src/config/openai.ts`) with instructions to answer *only* from the provided context.
   - **Response**: If relevant information is found, the LLM generates an answer. Otherwise, the bot indicates it doesn't have the answer based on the provided data.
 
-  ### 3. **Admin Dashboard**
-  - **Location**: `src/app/admin/`
-  - **Functionality**: Allows users to upload URLs/files for training, manage application settings (e.g., appearance, model parameters), and view ingested data.
+  ### 3. **Admin Dashboard (Frontend)**
+  - **Location**: `apps/frontend/src/app/admin/`
+  - **Functionality**: Allows users to upload URLs/files for training (interacting with backend APIs), manage application settings, and view ingested data.
   - **Real-time Updates**: Provides feedback on ingestion processes, error handling, and loading states.
 
   ---
 
-  ## 🛠️ Key Shared Utilities & Modules
+  ## 🛠️ Key Modules & Locations
 
-  - **Text Chunking**: `src/ingestion/shared/chunkText.ts`
-  - **Embeddings Generation**: `src/ingestion/shared/embedding.ts` (utilizing OpenAI)
-  - **Tag Classification**: `src/ingestion/shared/classifyTagsWithOpenAI.ts` (for categorizing content)
-  - **Q&A Preprocessing**: `src/lib/preprocess.ts`
-  - **RAG Core Logic**: `src/lib/rag.ts`
-  - **Web Scraping**: `src/lib/firecrawl.ts`
-  - **Firebase Integration**: `src/lib/firebase.ts`, `src/lib/firebase-admin.ts`
+  - **Shared Utilities & Types**: `packages/shared/src/`
+    - Text Chunking: `packages/shared/src/chunkText.ts`
+    - Common Types: `packages/shared/src/types.ts`, `packages/shared/src/chat.types.ts`
+  - **Backend Core Logic**: `apps/backend/src/lib/`
+    - Embeddings Generation: `apps/backend/src/lib/embedding.ts`
+    - Tag Classification: `apps/backend/src/lib/ingestion/classifyTagsWithOpenAI.ts`
+    - Q&A Preprocessing: `apps/backend/src/lib/preprocess.ts`
+    - RAG Core Logic: `apps/backend/src/lib/rag.ts`
+    - Web Scraping: `apps/backend/src/lib/firecrawl.ts`
+  - **Firebase Integration**:
+    - Client-side: `apps/frontend/src/lib/firebase.ts`
+    - Admin SDK (Backend): `apps/backend/src/lib/firebaseAdmin.ts`
+  - **API Routes**: `apps/backend/src/api/v1/`
+  - **Frontend UI**: `apps/frontend/src/app/`, `apps/frontend/src/components/`
 
   ---
 
   ## 🗄️ Archived & Legacy Code
 
-  - **API Endpoints**: `src/app/api/archive/`
-  - **Components**: `src/components/archive/`
-  - **Pages**: The `pages/` directory (e.g., `pages/api/ingest.ts`) contains older Next.js pages/api routes.
+  - **API Endpoints**: Archived API logic can be found within `apps/backend/src/api/v1/archive/`.
+  - **Components**: Archived UI components are in `apps/frontend/src/components/archive/`.
+  - **Pages**: The root `pages/` directory (e.g., `pages/api/ingest.ts`) contains older Next.js pages/api routes. Its relevance to the current monorepo structure should be reviewed.
 
   ---
 
   ## 🧩 Extensibility
 
   ### Adding New Q&A Patterns
-  - Modify regex patterns and Q&A generation logic in `src/lib/preprocess.ts`.
+  - Modify regex patterns and Q&A generation logic in `apps/backend/src/lib/preprocess.ts`.
   - Ensure patterns are generic and not business-specific.
 
   ### Privacy & Security
-  - The system is designed to avoid exposing backend-only data or secrets.
-  - Q&A generation relies solely on the data provided through uploads or public URLs.
+  - The system is designed to avoid exposing backend-only data or secrets to the frontend.
+  - Q&A generation relies solely on the data provided through uploads or public URLs, processed by the backend.
 
   ---
 
   ## 🧪 Testing & Development
 
-  ### Running the Development Server
-  - Execute `npm run dev` to start the Next.js development server.
-  - Access the application locally (typically `http://localhost:3000`).
-  - Use the admin dashboard to upload data and test chat responses.
+  ### Running the Development Servers
+  - **Frontend**: `npm run dev:frontend` (typically `http://localhost:3000`)
+  - **Backend**: `npm run dev:backend` (port configured in `apps/backend/.env` or server setup)
+  - Use the admin dashboard on the frontend to upload data and test chat responses, which will interact with the backend API.
 
   ### Running Tests
   - **Unit/Integration Tests (Jest)**:
-    - Test files are located in `src/__tests__/`.
-    - Run with `npm test` or `yarn test`.
-    - Critical logic (chunking, embedding, tagging, chat, API endpoints) should be covered.
+    - Test files are co-located or in `__tests__` directories within `apps/frontend/src`, `apps/backend/src`, and `packages/shared/src`.
+    - Run with `npm test` (which should run tests for all workspaces) or target specific workspaces e.g., `npm test -w backend`.
   - **End-to-End Tests (Cypress)**:
     - Test files are in `cypress/e2e/`.
     - Configuration in `cypress.config.ts`.
-    - Run with a script like `npm run cypress:open` or `npm run cypress:run` (check `package.json` for specific scripts).
+    - Run with a script like `npm run cypress:open` or `npm run cypress:run`.
 
   ---
 
@@ -159,9 +164,10 @@
   - UI is RTL-friendly, modern, and responsive, built with TailwindCSS.
   - The chat widget is designed to be embeddable.
   - Admin dashboard allows real-time settings updates.
-  - Backend logic is primarily handled via Next.js App Router API routes.
-  - Firebase is used for data storage (Firestore), and potentially authentication and hosting.
-  - Environment variables are managed via `.env.local` (ensure this file is in `.gitignore`).
+  - Backend is a separate application (e.g., Express.js based on `apps/backend/src/server.ts`) providing APIs for the frontend.
+  - Firebase is used for data storage (Firestore), authentication (Firebase Auth for users, Firebase Admin for backend verification), and potentially hosting.
+  - Environment variables are managed via `.env` files in respective app directories (e.g., `apps/frontend/.env.local`, `apps/backend/.env`).
+
 
   ---
 

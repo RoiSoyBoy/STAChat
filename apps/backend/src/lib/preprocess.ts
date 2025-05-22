@@ -1,6 +1,6 @@
 import OpenAI from "openai";
-import { chunkText } from '@/ingestion/shared/chunkText'; // Import chunkText
-import { cleanString } from '@/lib/textUtils'; // Import cleanString
+import { chunkText } from './chunkText'; // Import chunkText
+import { cleanString } from './textUtils'; // Import cleanString
 
 export interface QA {
   question: string;

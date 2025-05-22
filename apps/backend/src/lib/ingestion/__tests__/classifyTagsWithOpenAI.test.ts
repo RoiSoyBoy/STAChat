@@ -1,5 +1,5 @@
 import 'openai/shims/node'; // Add Node fetch shim for OpenAI library
-import { classifyTagsWithOpenAI } from '@/ingestion/shared/classifyTagsWithOpenAI';
+import { classifyTagsWithOpenAI } from '../classifyTagsWithOpenAI';
 
 describe('classifyTagsWithOpenAI', () => {
   it('returns an array of tags for a given text', async () => {

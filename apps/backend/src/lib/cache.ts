@@ -1,5 +1,5 @@
 import NodeCache from 'node-cache';
-import { NextResponse } from 'next/server';
+// import { NextResponse } from 'next/server'; // Removed Next.js specific import
 
 // Cache instance with 5 minute TTL by default
 export const cache = new NodeCache({
@@ -19,7 +19,7 @@ const rateLimits = new Map<string, { count: number; timestamp: number }>();
 export function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const windowMs = 60 * 1000; // 1 minute
-  const maxRequests = 100;
+  const maxRequests = 100; // Example: 100 requests per minute
 
   const current = rateLimits.get(ip) || { count: 0, timestamp: now };
   
@@ -38,12 +38,19 @@ export function checkRateLimit(ip: string): boolean {
   return current.count <= maxRequests;
 }
 
+// TODO: Adapt this function for the specific backend framework (e.g., Express)
+// For example, in Express, it might look like:
+// export function getRateLimitResponse(res: express.Response) {
+//   return res.status(429).json({ error: 'נא לנסות שוב בעוד דקה' });
+// }
+/*
 export function getRateLimitResponse() {
   return NextResponse.json(
     { error: 'נא לנסות שוב בעוד דקה' },
     { status: 429 }
   );
 }
+*/
 
 // Cache middleware for client context
 export const withCache = async <T>(
@@ -53,10 +60,11 @@ export const withCache = async <T>(
 ): Promise<T> => {
   const cachedData = cache.get<T>(key);
   if (cachedData) {
+    console.log(`[Cache] HIT for key: ${key}`);
     return cachedData;
   }
-
+  console.log(`[Cache] MISS for key: ${key}`);
   const data = await getData();
   cache.set(key, data, ttl);
   return data;
-}; 
+};

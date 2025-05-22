@@ -1,4 +1,4 @@
-import { chunkText } from '@/ingestion/shared/chunkText';
+import { chunkText } from '../chunkText';
 
 describe('chunkText', () => {
   it('returns empty array for empty input', () => {
@@ -50,4 +50,4 @@ describe('chunkText', () => {
     expect(chunkText(text, 0)).toEqual([text]);
     expect(chunkText(text, -5)).toEqual([text]);
   });
-}); 
+});

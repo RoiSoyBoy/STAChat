@@ -3,7 +3,13 @@ import { ChatRequestBody, ChatResponseBody, ApiErrorResponse } from 'shared-type
 // import { getAuth } from 'firebase/auth'; 
 // import firebaseApp from '../lib/firebase'; // Assuming you have firebase initialized
 
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:3003/api/v1'; // Defaulting to 3003
+const envApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+const fallbackApiUrl = 'http://localhost:3001/api/v1'; // Defaulting to 3001 (corrected)
+const BACKEND_API_URL = envApiUrl || fallbackApiUrl; 
+
+console.log('[apiClient] NEXT_PUBLIC_BACKEND_API_URL (from process.env):', envApiUrl);
+console.log('[apiClient] Fallback API URL:', fallbackApiUrl);
+console.log('[apiClient] Effective BACKEND_API_URL:', BACKEND_API_URL);
 
 async function getAuthToken(): Promise<string | null> {
   // const auth = getAuth(firebaseApp);

@@ -31,4 +31,4 @@ export function extractMainContentFromHtml(html: string): string {
   // Clean up whitespace
   mainContent = mainContent.replace(/\s+/g, ' ').trim();
   return mainContent;
-} 
+}

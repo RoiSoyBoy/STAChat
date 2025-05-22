@@ -39,4 +39,4 @@ export function chunkText(text: string, chunkSize: number = 250, overlap: number
   }
   if (current.length > 0) chunks.push(current.join(' '));
   return chunks;
-} 
+}

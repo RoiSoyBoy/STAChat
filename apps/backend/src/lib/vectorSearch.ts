@@ -1,5 +1,6 @@
-import { adminDb, Timestamp, QueryDocumentSnapshot } from '@/lib/firebaseAdmin'; // Updated import
+import { adminDb, Timestamp, QueryDocumentSnapshot } from './firebaseAdmin'; // Updated import
 import OpenAI from 'openai';
+import { WebEmbeddingDoc } from './types';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -21,16 +22,7 @@ function cosineSimilarity(a: number[], b: number[]) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-interface WebEmbeddingDoc {
-  id: string;
-  url: string;
-  heading: string;
-  text: string;
-  embedding: number[];
-  createdAt: number;
-}
-
-export async function findMostSimilarChunks(query: string, topN = 5) {
+export async function findMostSimilarChunks(query: string, topN = 5): Promise<WebEmbeddingDoc[]> {
   const queryEmbedding = await getEmbeddingForQuery(query);
   const snapshot = await adminDb.collection('web_embeddings').get();
   
@@ -74,13 +66,14 @@ export async function findMostSimilarChunks(query: string, topN = 5) {
   });
 
   // Compute similarity for each chunk
-  const scored = docs.map((doc: WebEmbeddingDoc) => ({
+  const scored: WebEmbeddingDoc[] = docs.map((doc: WebEmbeddingDoc) => ({
     ...doc,
     similarity: cosineSimilarity(queryEmbedding, doc.embedding),
   }));
 
   // Sort by similarity, descending
-  scored.sort((a, b) => b.similarity - a.similarity);
+  scored.sort((a, b) => b.similarity! - a.similarity!);
 
   return scored.slice(0, topN);
 }
+// Refreshing module status
