@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 export default function Error({
   error,
@@ -15,14 +15,17 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4" dir="rtl">
+    <div
+      className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4"
+      dir="rtl"
+    >
       <div className="max-w-md w-full space-y-8 text-center">
         <div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
             משהו השתבש...
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {error.message || 'אירעה שגיאה בלתי צפויה'}
+            {error.message || "אירעה שגיאה בלתי צפויה"}
           </p>
         </div>
         <div>
@@ -36,4 +39,4 @@ export default function Error({
       </div>
     </div>
   );
-} 
+}

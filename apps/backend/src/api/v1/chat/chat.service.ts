@@ -60,8 +60,27 @@ export class ChatService {
       console.log("Context from Pinecone:", contextText);
       console.log("Source documents for context:", sourceDocuments.map(s => s.name));
 
+      // Validate context before proceeding to OpenAI
+      if (!contextText || contextText.trim().length === 0) {
+        console.log("ChatService: No context found from Pinecone. Returning standard 'no information' message.");
+        return {
+          response: "מצטער, אין לי מידע בנוגע לשאלה זו במאגר הנתונים הזמין לי.",
+          sourceDocuments: [], // Return empty sources as no context was used
+        };
+      }
+
       // 2. Build a prompt using the message, history, and retrieved context.
-      const systemPrompt = `אתה עוזר וירטואלי מקצועי. ענה בעברית. השתמש בהקשר שסופק כדי לענות על שאלות. אם המידע לא נמצא בהקשר, אמור שאינך יודע.`;
+      // Updated system prompt for stricter context adherence
+      const systemPrompt = `אתה עוזר וירטואלי מקצועי. עליך לענות רקיק על בסיס ההקשר שסופק לך. 
+
+חוקים קפדניים:
+1. אם המידע לא נמצא בהקשר שסופק - ענה: "מצטער, אין לי מידע בנוגע לשאלה זו במאגר הנתונים הזמין לי."
+2. אל תשתמש בידע כללי או מידע שלא נמצא בהקשר
+3. אל תנחש או תמציא מידע
+4. ענה בעברית בלבד
+5. אם יש הקשר - ענה על בסיסו בלבד
+
+הקשר זמין: {context}`; // The {context} placeholder will be filled by buildPrompt
       
       const chatHistoryForPrompt: ChatTurn[] = history
         .filter(h => h.role === 'user' || h.role === 'assistant') // Ensure only user/assistant roles

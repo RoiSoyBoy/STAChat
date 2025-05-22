@@ -1,6 +1,6 @@
 // clearFirestoreData.js
-require('dotenv').config({ path: '.env.local' }); // Load .env.local
-const { adminDb } = require('./src/lib/firebaseAdmin'); // Assuming firebase-admin is initialized here
+require('dotenv').config({ path: 'apps/backend/.env' }); // Load apps/backend/.env
+const { adminDb } = require('./apps/backend/src/lib/firebaseAdmin');
 const readline = require('readline');
 
 const USER_ID_TO_CLEAR = 'test-user';

@@ -7,15 +7,18 @@
     "node": ">=18.18.2"
   },
   "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
     "dev:frontend": "npm run dev -w frontend",
     "dev:backend": "npm run dev -w backend",
+    "build": "npm run build --workspaces --if-present",
     "build:frontend": "npm run build -w frontend",
     "build:backend": "npm run build -w backend",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
-    "install:all": "npm install"
+    "install:all": "npm install",
+    "clear:firestore": "ts-node -P ./apps/backend/tsconfig.json -r tsconfig-paths/register ./clearFirestoreData.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",
@@ -30,7 +33,8 @@
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.1.0",
     "prettier": "^3.5.3",
-    "typescript": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3",
     "typescript-eslint": "^8.32.1"
   },
   "workspaces": [

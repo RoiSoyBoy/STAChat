@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
+import { motion } from "framer-motion";
 
 interface CardProps {
   title: string;
@@ -20,4 +20,4 @@ export function Card({ title, children }: CardProps) {
       <div className="p-6">{children}</div>
     </motion.div>
   );
-} 
+}

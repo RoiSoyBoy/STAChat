@@ -17,25 +17,52 @@ export const getAuth = adminGetAuth;
 export const getStorage = adminGetStorage; // Re-export getStorage
 export { getFirestore, Timestamp, QueryDocumentSnapshot, FieldValue }; // Re-export getFirestore and types
 
-export function initializeAdminApp(): Firestore {
+export function initializeAdminApp(): void {
   if (getApps().length === 0) {
-    initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        // Ensure private key newlines are handled correctly if coming from .env
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
-    });
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    if (projectId && clientEmail && privateKey) {
+      // If all specific environment variables are provided, use them
+      initializeApp({
+        credential: cert({
+          projectId,
+          clientEmail,
+          privateKey: privateKey.replace(/\\n/g, '\n'),
+        }),
+      });
+    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      // If GOOGLE_APPLICATION_CREDENTIALS is set, Firebase Admin SDK will use it automatically
+      // You can also explicitly pass the path: initializeApp({ credential: cert(process.env.GOOGLE_APPLICATION_CREDENTIALS) });
+      // Or, more simply, just initializeApp() and let it auto-discover.
+      initializeApp();
+      console.log("Firebase Admin SDK initialized using GOOGLE_APPLICATION_CREDENTIALS.");
+    } else {
+      // Fallback or error if no credentials found
+      // This will likely cause an error if Firebase services are accessed without proper init.
+      // Consider throwing an explicit error here if credentials are vital for app start.
+      console.warn(
+        'Firebase Admin SDK: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are not all set, ' +
+        'and GOOGLE_APPLICATION_CREDENTIALS is not set. Attempting default initialization.'
+      );
+      initializeApp(); // Attempt default initialization (e.g., for emulators or GCE environment)
+    }
   }
+}
+
+// Initialize on module load
+initializeAdminApp();
+
+// Export a function to get the Firestore instance
+// This ensures that getFirestore() is called after initializeApp()
+export function getAdminDb(): Firestore {
   if (!adminDbInstance) {
-    // Use the re-exported getFirestore for internal consistency if needed,
-    // or the direct import. Here, direct import is fine.
     adminDbInstance = getFirestore();
   }
   return adminDbInstance;
 }
 
-// Optionally, export a pre-initialized instance for regular app use,
-// but tests can choose to call initializeAdminApp or mock it.
-export const adminDb: Firestore = process.env.NODE_ENV === 'test' ? (undefined as any) : initializeAdminApp();
+// Export the pre-initialized instance for convenience.
+// For tests, you might want to re-initialize or mock.
+export const adminDb: Firestore = getAdminDb();

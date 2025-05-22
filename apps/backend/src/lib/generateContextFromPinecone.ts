@@ -1,5 +1,6 @@
 import { Pinecone } from '@pinecone-database/pinecone';
 import { OpenAI } from 'openai';
+import { OPENAI_EMBEDDING_MODEL } from 'shared';
 
 export interface PineconeMatch {
   id: string;
@@ -58,7 +59,7 @@ export async function generateContextFromPinecone({
   // 1. Embed the question
   const openai = new OpenAI({ apiKey: openaiApiKey });
   const embeddingResp = await openai.embeddings.create({
-    model: 'text-embedding-ada-002',
+    model: OPENAI_EMBEDDING_MODEL,
     input: question,
   });
   const embedding = embeddingResp.data[0].embedding;
@@ -66,20 +67,56 @@ export async function generateContextFromPinecone({
   console.log(`[generateContextFromPinecone] Parameters: userId='${userId}', question='${question.substring(0, 50)}...', similarityThreshold=${similarityThreshold}, topK=${topK}`);
 
   const pinecone = new Pinecone({ apiKey: pineconeApiKey });
-  const index = pinecone.index(pineconeIndex).namespace(`user-${userId}`);
+  const indexName = pineconeIndex; // For logging
+  const queryVector = embedding; // For logging
+  const index = pinecone.index(indexName).namespace(`user-${userId}`);
+
+  // --- PINECONE DEBUG START ---
+  console.log('=== PINECONE DEBUG START ===');
+  console.log('Index name used for query:', indexName);
+  console.log('Query vector dimensions:', queryVector?.length);
+  console.log('User ID for namespacing:', userId); // This is tenantId from chat.service
+  console.log('Similarity threshold:', similarityThreshold);
+  console.log('Pinecone metadata filter: None applied (relying on namespace)');
+
+  try {
+    const stats = await index.describeIndexStats();
+    // Corrected property name based on TypeScript error
+    console.log('Index total records (overall):', stats.totalRecordCount ?? 'N/A'); 
+    console.log('Index dimensions:', stats.dimension);
+    
+    const namespaceStats = stats.namespaces?.[`user-${userId}`];
+    if (namespaceStats) {
+      console.log(`Detailed stats for namespace 'user-${userId}':`, namespaceStats);
+      // Corrected property name based on TypeScript error
+      console.log(`Record count in namespace 'user-${userId}':`, namespaceStats.recordCount ?? 'N/A');
+    } else {
+      console.log(`No specific stats entry for namespace 'user-${userId}' was found. This namespace might be empty or not exist.`);
+    }
+  } catch (statsError) {
+    console.error('Error fetching index stats for namespace user-' + userId + ':', statsError);
+  }
+  // --- PINECONE DEBUG END ---
 
   // 2. Perform a single query to fetch a combined set of matches
   // Fetch topK + 5 to have a larger pool, then select the best 'topK' after similarity filtering.
   const pineconeQueryTopK = topK + 5; 
   const queryResp = await index.query({
-    vector: embedding,
+    vector: queryVector, // Use the logged queryVector
     topK: pineconeQueryTopK,
     includeMetadata: true,
     // No filter parameter means no metadata filtering is applied
   });
   
   const allMatches: PineconeMatch[] = (queryResp.matches || []) as any;
-  console.log(`[generateContextFromPinecone] Pinecone raw query returned ${allMatches.length} matches. Scores: ${allMatches.map(m => m.score.toFixed(4)).join(', ')}`);
+  console.log(`[generateContextFromPinecone] Pinecone raw query (from namespace 'user-${userId}') returned ${allMatches.length} matches. Scores: ${allMatches.map(m => m.score.toFixed(4)).join(', ')}`);
+  
+  // Test query without filters (already done by the above, as it's namespaced but no metadata filter)
+  // If "without filters" meant "without namespace and without metadata filter", that's a different test.
+  // For now, the existing query is effectively "unfiltered within its namespace".
+  console.log('Unfiltered matches found (within namespace user-' + userId + '):', allMatches.length); // Matches queryResp.matches.length
+  console.log('=== PINECONE DEBUG END (after query) ===');
+
 
   // 3. Filter matches by similarity threshold and select the top 'topK' overall results
   const filteredMatchesByThreshold = allMatches.filter(m => m.score >= similarityThreshold);

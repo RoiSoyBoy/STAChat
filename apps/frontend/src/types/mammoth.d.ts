@@ -1,4 +1,4 @@
-declare module 'mammoth' {
+declare module "mammoth" {
   interface ConversionResult {
     value: string;
     messages: Array<{
@@ -13,4 +13,4 @@ declare module 'mammoth' {
   }
 
   export function extractRawText(options: Options): Promise<ConversionResult>;
-} 
+}

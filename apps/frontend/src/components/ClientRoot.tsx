@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { ThemeProvider } from '@/lib/ThemeContext';
-import { useEffect, useState } from 'react';
+import { ThemeProvider } from "@/lib/ThemeContext";
+import { useEffect, useState } from "react";
 
 declare global {
   interface Window {
@@ -23,15 +23,15 @@ export function ClientRoot({ children }: { children: React.ReactNode }) {
 
   if (!isHydrated) {
     return (
-      <div style={{ visibility: 'hidden' }} aria-hidden="true">
+      <div style={{ visibility: "hidden" }} aria-hidden="true">
         {children}
       </div>
     );
   }
 
   return (
-    <div style={{ visibility: 'visible' }}>
+    <div style={{ visibility: "visible" }}>
       <ThemeProvider>{children}</ThemeProvider>
     </div>
   );
-} 
+}

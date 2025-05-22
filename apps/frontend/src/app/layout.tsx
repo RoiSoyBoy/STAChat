@@ -1,5 +1,5 @@
 import { Inter } from "next/font/google";
-import { RootLayoutClient } from '@/components/RootLayoutClient';
+import { RootLayoutClient } from "@/components/RootLayoutClient";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -10,23 +10,23 @@ export const metadata = {
 };
 
 export const viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({
   children,
-  params, // Next.js App Router passes params here, which might include locale if configured
 }: {
   children: React.ReactNode;
-  params?: { locale?: string }; // Optional locale param
 }) {
-  const locale = params?.locale || 'he'; // Default to 'he' if no locale in params
+  const locale = "he"; // Hardcode to Hebrew
 
   return (
-    <html lang={locale} dir={locale === 'he' ? 'rtl' : 'ltr'}>
-      <body className={`bg-gray-50 text-gray-900 min-h-screen font-sans antialiased ${inter.className}`}>
-        <RootLayoutClient locale={locale}>{children}</RootLayoutClient>
+    <html lang={locale} dir="rtl">
+      <body
+        className={`bg-gray-50 text-gray-900 min-h-screen font-sans antialiased ${inter.className}`}
+      >
+        <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
   );

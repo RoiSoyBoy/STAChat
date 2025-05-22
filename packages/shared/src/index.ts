@@ -4,6 +4,7 @@ export * from './types';
 export * from './chunkText';
 export * from './textUtils';
 export * from './validation';
+export * from './constants';
 // Example:
 // export * from './user.types';
 

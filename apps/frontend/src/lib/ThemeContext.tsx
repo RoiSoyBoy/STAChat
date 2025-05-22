@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState } from "react";
 
 interface ThemeContextType {
   primaryColor: string;
@@ -8,12 +8,12 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  primaryColor: '#0066cc',
+  primaryColor: "#0066cc",
   setPrimaryColor: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [primaryColor, setPrimaryColor] = useState('#0066cc');
+  const [primaryColor, setPrimaryColor] = useState("#0066cc");
 
   return (
     <ThemeContext.Provider value={{ primaryColor, setPrimaryColor }}>
@@ -24,4 +24,4 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   return useContext(ThemeContext);
-} 
+}

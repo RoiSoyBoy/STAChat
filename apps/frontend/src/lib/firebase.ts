@@ -1,7 +1,7 @@
-import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
+import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
 // These values should be stored in your .env.local file
 // e.g., NEXT_PUBLIC_FIREBASE_API_KEY=your_actual_api_key

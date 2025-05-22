@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { ComponentProps } from 'react';
+import dynamic from "next/dynamic";
+import { ComponentProps } from "react";
 
 // Define a loading component
 const FileUploadLoading = () => (
@@ -11,9 +11,9 @@ const FileUploadLoading = () => (
 );
 
 // Dynamically import the original FileUpload component
-const OriginalFileUpload = dynamic(() => 
-  import('./FileUpload').then(mod => mod.FileUpload), 
-  { 
+const OriginalFileUpload = dynamic(
+  () => import("./FileUpload").then((mod) => mod.FileUpload),
+  {
     ssr: false, // Disable SSR for this component if it relies on browser APIs
     loading: () => <FileUploadLoading />,
   }

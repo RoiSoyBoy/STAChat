@@ -1,4 +1,5 @@
 import { OpenAI } from 'openai';
+import { OPENAI_EMBEDDING_MODEL, OPENAI_EMBEDDING_DIMENSIONS } from 'shared';
 
 // Instantiate OpenAI client
 const openai = new OpenAI({
@@ -17,7 +18,7 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 
   try {
     const response = await openai.embeddings.create({
-      model: "text-embedding-ada-002", // Standard 1536-dim model
+      model: OPENAI_EMBEDDING_MODEL, // Standard 1536-dim model
       input: processedTexts,
     });
 
@@ -31,7 +32,7 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
     const embeddings = response.data.map(item => item.embedding);
 
     // Validate embedding dimensions (optional but good practice)
-    if (embeddings.some(e => e.length !== 1536)) {
+    if (embeddings.some(e => e.length !== OPENAI_EMBEDDING_DIMENSIONS)) {
         console.error('Embeddings received with incorrect dimensions.');
         throw new Error('Embeddings dimension mismatch.');
     }

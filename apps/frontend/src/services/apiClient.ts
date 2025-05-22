@@ -1,23 +1,32 @@
-import { ChatRequestBody, ChatResponseBody, ApiErrorResponse } from 'shared-types';
+import {
+  ChatRequestBody,
+  ChatResponseBody,
+  ApiErrorResponse,
+} from "shared-types";
 // You'll need to have Firebase initialized in your frontend
-// import { getAuth } from 'firebase/auth'; 
+// import { getAuth } from 'firebase/auth';
 // import firebaseApp from '../lib/firebase'; // Assuming you have firebase initialized
 
 const envApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
-const fallbackApiUrl = 'http://localhost:3001/api/v1'; // Defaulting to 3001 (corrected)
-const BACKEND_API_URL = envApiUrl || fallbackApiUrl; 
+const fallbackApiUrl = "http://localhost:3001/api/v1"; // Defaulting to 3001 (corrected)
+const BACKEND_API_URL = envApiUrl || fallbackApiUrl;
 
-console.log('[apiClient] NEXT_PUBLIC_BACKEND_API_URL (from process.env):', envApiUrl);
-console.log('[apiClient] Fallback API URL:', fallbackApiUrl);
-console.log('[apiClient] Effective BACKEND_API_URL:', BACKEND_API_URL);
+console.log(
+  "[apiClient] NEXT_PUBLIC_BACKEND_API_URL (from process.env):",
+  envApiUrl
+);
+console.log("[apiClient] Fallback API URL:", fallbackApiUrl);
+console.log("[apiClient] Effective BACKEND_API_URL:", BACKEND_API_URL);
 
 async function getAuthToken(): Promise<string | null> {
   // const auth = getAuth(firebaseApp);
   // if (auth.currentUser) {
   //   return auth.currentUser.getIdToken();
   // }
-  console.warn('Using placeholder token for API client. Implement actual Firebase token retrieval.');
-  return localStorage.getItem('authToken'); // Or however you store your JWT
+  console.warn(
+    "Using placeholder token for API client. Implement actual Firebase token retrieval."
+  );
+  return localStorage.getItem("authToken"); // Or however you store your JWT
 }
 
 export async function postChatMessage(
@@ -26,14 +35,14 @@ export async function postChatMessage(
   const token = await getAuthToken();
 
   if (!token) {
-    throw new Error('User not authenticated. Cannot send chat message.');
+    throw new Error("User not authenticated. Cannot send chat message.");
   }
 
   const response = await fetch(`${BACKEND_API_URL}/chat`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
   });
@@ -45,8 +54,18 @@ export async function postChatMessage(
     } catch (e) {
       // Ignore if response is not JSON
     }
-    const errorMessage = errorData?.message || errorData?.error || `API request failed with status ${response.status}`;
-    console.error('postChatMessage failed:', errorMessage, 'Status:', response.status, 'Response Data:', errorData);
+    const errorMessage =
+      errorData?.message ||
+      errorData?.error ||
+      `API request failed with status ${response.status}`;
+    console.error(
+      "postChatMessage failed:",
+      errorMessage,
+      "Status:",
+      response.status,
+      "Response Data:",
+      errorData
+    );
     throw new Error(errorMessage);
   }
 

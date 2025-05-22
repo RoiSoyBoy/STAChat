@@ -1,4 +1,4 @@
-import { SVGProps } from 'react';
+import { SVGProps } from "react";
 
 export function RobotIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -19,4 +19,4 @@ export function RobotIcon(props: SVGProps<SVGSVGElement>) {
       <line x1="16" y1="16" x2="16" y2="16" />
     </svg>
   );
-} 
+}

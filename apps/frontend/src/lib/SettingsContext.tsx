@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 interface Settings {
   primaryColor: string;
@@ -15,9 +15,9 @@ interface SettingsContextType {
 }
 
 const defaultSettings: Settings = {
-  primaryColor: '#0066cc',
-  greeting: 'שלום! איך אני יכול/ה לעזור לך היום?',
-  logoUrl: '',
+  primaryColor: "#0066cc",
+  greeting: "שלום! איך אני יכול/ה לעזור לך היום?",
+  logoUrl: "",
 };
 
 const SettingsContext = createContext<SettingsContextType>({
@@ -33,9 +33,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch('/api/settings');
+        const response = await fetch("/api/settings");
         if (!response.ok) {
-          throw new Error('Failed to fetch settings');
+          throw new Error("Failed to fetch settings");
         }
         const data = await response.json();
         setSettings({
@@ -44,7 +44,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           logoUrl: data.logoUrl || defaultSettings.logoUrl,
         });
       } catch (error) {
-        console.error('Error fetching settings:', error);
+        console.error("Error fetching settings:", error);
       } finally {
         setIsLoading(false);
       }
@@ -60,25 +60,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const updateSettings = async (newSettings: Partial<Settings>) => {
     try {
-      const response = await fetch('/api/settings', {
-        method: 'POST',
+      const response = await fetch("/api/settings", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(newSettings),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update settings');
+        throw new Error("Failed to update settings");
       }
 
       const data = await response.json();
-      setSettings(prev => ({
+      setSettings((prev) => ({
         ...prev,
         ...newSettings,
       }));
     } catch (error) {
-      console.error('Error updating settings:', error);
+      console.error("Error updating settings:", error);
     }
   };
 
@@ -89,4 +89,4 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const useSettings = () => useContext(SettingsContext); 
+export const useSettings = () => useContext(SettingsContext);

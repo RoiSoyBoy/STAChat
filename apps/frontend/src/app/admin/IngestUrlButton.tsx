@@ -1,23 +1,23 @@
-import { useState } from 'react';
-import { firecrawlSearch, firecrawlCrawl, firecrawlBatchScrape } from '../../lib/firecrawlTools';
+import { useState } from "react";
+// import { firecrawlSearch, firecrawlCrawl, firecrawlBatchScrape } from '../../lib/firecrawlTools';
 
 export default function IngestUrlButton() {
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState("");
   const [status, setStatus] = useState<string | null>(null);
 
   const handleIngest = async () => {
-    setStatus('Ingesting...');
+    setStatus("Ingesting...");
     try {
-      const crawlResult = await firecrawlCrawl(url);
-      const urls = crawlResult.urls;
-      const batchScrapeResult = await firecrawlBatchScrape(urls);
-      if (batchScrapeResult.success) {
-        setStatus('Ingestion complete!');
-      } else {
-        setStatus('Error: ' + (batchScrapeResult.error || 'Unknown error'));
-      }
+      // const crawlResult = await firecrawlCrawl(url);
+      // const urls = crawlResult.urls;
+      // const batchScrapeResult = await firecrawlBatchScrape(urls);
+      // if (batchScrapeResult.success) {
+      setStatus("Ingestion complete! (Simulated)");
+      // } else {
+      //   setStatus('Error: ' + (batchScrapeResult.error || 'Unknown error'));
+      // }
     } catch (err: any) {
-      setStatus('Error: ' + err.message);
+      setStatus("Error: " + err.message);
     }
   };
 
@@ -26,7 +26,7 @@ export default function IngestUrlButton() {
       <input
         type="text"
         value={url}
-        onChange={e => setUrl(e.target.value)}
+        onChange={(e) => setUrl(e.target.value)}
         placeholder="Enter URL to ingest"
         className="border px-2 py-1 rounded w-64"
       />
@@ -40,4 +40,4 @@ export default function IngestUrlButton() {
       {status && <div className="text-sm mt-2">{status}</div>}
     </div>
   );
-} 
+}

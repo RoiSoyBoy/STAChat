@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import Image from 'next/image'; // Import next/image
-import { toast } from 'react-toastify';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import React, { useState, useEffect } from "react";
+import Image from "next/image"; // Import next/image
+import { toast } from "react-toastify";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface SettingsFormProps {
   userId: string;
 }
 
 export default function SettingsForm({ userId }: SettingsFormProps) {
-  const [color, setColor] = useState('#0066cc');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [greeting, setGreeting] = useState('שלום! איך אפשר לעזור?');
+  const [color, setColor] = useState("#0066cc");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [greeting, setGreeting] = useState("שלום! איך אפשר לעזור?");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [botName, setBotName] = useState('');
-  const [tone, setTone] = useState('formal');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [description, setDescription] = useState('');
-  const [introMessage, setIntroMessage] = useState('');
+  const [botName, setBotName] = useState("");
+  const [tone, setTone] = useState("formal");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [introMessage, setIntroMessage] = useState("");
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -27,17 +27,17 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
         const snap = await getDoc(doc(db, `users/${userId}/settings/main`));
         if (snap.exists()) {
           const data = snap.data();
-          setColor(data.primaryColor || '#0066cc');
-          setLogoUrl(data.logoUrl || '');
-          setGreeting(data.greeting || 'שלום! איך אפשר לעזור?');
-          setBotName(data.botName || '');
-          setTone(data.tone || 'formal');
-          setAvatarUrl(data.avatarUrl || '');
-          setDescription(data.description || '');
-          setIntroMessage(data.introMessage || '');
+          setColor(data.primaryColor || "#0066cc");
+          setLogoUrl(data.logoUrl || "");
+          setGreeting(data.greeting || "שלום! איך אפשר לעזור?");
+          setBotName(data.botName || "");
+          setTone(data.tone || "formal");
+          setAvatarUrl(data.avatarUrl || "");
+          setDescription(data.description || "");
+          setIntroMessage(data.introMessage || "");
         }
       } catch (e) {
-        toast.error('שגיאה בטעינת הגדרות');
+        toast.error("שגיאה בטעינת הגדרות");
       } finally {
         setLoading(false);
       }
@@ -47,15 +47,18 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
 
   const handleSave = async () => {
     if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) {
-      toast.error('יש להזין צבע HEX תקין');
+      toast.error("יש להזין צבע HEX תקין");
       return;
     }
     if (!greeting.trim()) {
-      toast.error('יש להזין ברכת פתיחה');
+      toast.error("יש להזין ברכת פתיחה");
       return;
     }
-    if (avatarUrl && !/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(avatarUrl)) {
-      toast.error('יש להזין קישור תמונה תקין');
+    if (
+      avatarUrl &&
+      !/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(avatarUrl)
+    ) {
+      toast.error("יש להזין קישור תמונה תקין");
       return;
     }
     setSaving(true);
@@ -70,16 +73,19 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
         description,
         introMessage,
       });
-      toast.success('ההגדרות נשמרו בהצלחה');
+      toast.success("ההגדרות נשמרו בהצלחה");
     } catch (e) {
-      toast.error('שגיאה בשמירת הגדרות');
+      toast.error("שגיאה בשמירת הגדרות");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <form dir="rtl" className="space-y-4 max-w-md mx-auto bg-white p-6 rounded shadow">
+    <form
+      dir="rtl"
+      className="space-y-4 max-w-md mx-auto bg-white p-6 rounded shadow"
+    >
       <h2 className="text-xl font-bold mb-2 text-right">הגדרות כלליות</h2>
       {loading ? (
         <div>טוען...</div>
@@ -91,7 +97,7 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
               id="color"
               type="color"
               value={color}
-              onChange={e => setColor(e.target.value)}
+              onChange={(e) => setColor(e.target.value)}
               className="w-16 h-8 border rounded"
               disabled={saving}
             />
@@ -102,7 +108,7 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
               id="logo"
               type="url"
               value={logoUrl}
-              onChange={e => setLogoUrl(e.target.value)}
+              onChange={(e) => setLogoUrl(e.target.value)}
               className="input input-bordered"
               placeholder="https://example.com/logo.png"
               disabled={saving}
@@ -114,7 +120,7 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
               id="greeting"
               type="text"
               value={greeting}
-              onChange={e => setGreeting(e.target.value)}
+              onChange={(e) => setGreeting(e.target.value)}
               className="input input-bordered"
               placeholder="שלום! איך אפשר לעזור?"
               disabled={saving}
@@ -126,7 +132,7 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
               id="botName"
               type="text"
               value={botName}
-              onChange={e => setBotName(e.target.value)}
+              onChange={(e) => setBotName(e.target.value)}
               className="input input-bordered"
               placeholder="הבוט שלי"
               disabled={saving}
@@ -137,7 +143,7 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
             <select
               id="tone"
               value={tone}
-              onChange={e => setTone(e.target.value)}
+              onChange={(e) => setTone(e.target.value)}
               className="input input-bordered"
               disabled={saving}
             >
@@ -152,27 +158,28 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
               id="avatarUrl"
               type="url"
               value={avatarUrl}
-              onChange={e => setAvatarUrl(e.target.value)}
+              onChange={(e) => setAvatarUrl(e.target.value)}
               className="input input-bordered"
               placeholder="https://example.com/bot.png"
               disabled={saving}
             />
-            {avatarUrl && /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(avatarUrl) && (
-              <Image 
-                src={avatarUrl} 
-                alt="Bot Avatar" 
-                width={64} // h-16 w-16 => 4rem * 16px/rem = 64px
-                height={64}
-                className="rounded-full border mt-2 mx-auto" 
-              />
-            )}
+            {avatarUrl &&
+              /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(avatarUrl) && (
+                <Image
+                  src={avatarUrl}
+                  alt="Bot Avatar"
+                  width={64} // h-16 w-16 => 4rem * 16px/rem = 64px
+                  height={64}
+                  className="rounded-full border mt-2 mx-auto"
+                />
+              )}
           </div>
           <div className="flex flex-col gap-2 text-right">
             <label htmlFor="description">תיאור הבוט</label>
             <textarea
               id="description"
               value={description}
-              onChange={e => setDescription(e.target.value)}
+              onChange={(e) => setDescription(e.target.value)}
               className="input input-bordered"
               placeholder="תאר את הבוט בקצרה..."
               disabled={saving}
@@ -183,13 +190,15 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
             <textarea
               id="introMessage"
               value={introMessage}
-              onChange={e => setIntroMessage(e.target.value)}
+              onChange={(e) => setIntroMessage(e.target.value)}
               className="input input-bordered"
               placeholder="שלום! אני כאן כדי לעזור."
               disabled={saving}
             />
             {introMessage && (
-              <div className="mt-1 text-xs text-gray-500">תצוגה מקדימה: {introMessage}</div>
+              <div className="mt-1 text-xs text-gray-500">
+                תצוגה מקדימה: {introMessage}
+              </div>
             )}
           </div>
           <button

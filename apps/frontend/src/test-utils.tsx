@@ -1,5 +1,5 @@
-import React from 'react';
-import { render as rtlRender } from '@testing-library/react';
+import React from "react";
+import { render as rtlRender } from "@testing-library/react";
 
 function render(ui: React.ReactElement, { ...renderOptions } = {}) {
   function Wrapper({ children }: { children: React.ReactNode }) {
@@ -9,7 +9,7 @@ function render(ui: React.ReactElement, { ...renderOptions } = {}) {
 }
 
 // re-export everything
-export * from '@testing-library/react';
+export * from "@testing-library/react";
 
 // override render method
-export { render }; 
+export { render };

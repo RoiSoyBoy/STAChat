@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import Image from 'next/image'; // Import next/image
+import Image from "next/image"; // Import next/image
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/lib/ThemeContext";
-import { postChatMessage } from '@/services/apiClient'; // Use alias path
+import { postChatMessage } from "@/services/apiClient"; // Use alias path
 
 const chatWindowVariants = {
   hidden: (origin: { x: number; y: number }) => ({
@@ -74,7 +74,8 @@ export function ChatWidget({
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [displayedAssistantMessage, setDisplayedAssistantMessage] = useState("");
+  const [displayedAssistantMessage, setDisplayedAssistantMessage] =
+    useState("");
   const [fullAssistantMessage, setFullAssistantMessage] = useState("");
   const [showFull, setShowFull] = useState(false);
   const [typingSpeed, setTypingSpeed] = useState(30); // words per minute
@@ -86,10 +87,13 @@ export function ChatWidget({
   const [lastCitationMap, setLastCitationMap] = useState<any>({}); // This might need to be re-evaluated based on new API response
   const [botName, setBotName] = useState("הבוט");
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [introMessage, setIntroMessage] = useState("שלום! איך אני יכול/ה לעזור לך היום?");
+  const [introMessage, setIntroMessage] = useState(
+    "שלום! איך אני יכול/ה לעזור לך היום?"
+  );
 
   // Ensure persistent clientId
-  let clientId = typeof window !== "undefined" ? localStorage.getItem("clientId") : null;
+  let clientId =
+    typeof window !== "undefined" ? localStorage.getItem("clientId") : null;
   if (typeof window !== "undefined" && !clientId) {
     clientId = crypto.randomUUID();
     localStorage.setItem("clientId", clientId);
@@ -104,9 +108,13 @@ export function ChatWidget({
           const data = await res.json();
           setBotName(data.botName || "הבוט");
           setAvatarUrl(data.avatarUrl || "");
-          setIntroMessage(data.introMessage || "שלום! איך אני יכול/ה לעזור לך היום?");
+          setIntroMessage(
+            data.introMessage || "שלום! איך אני יכול/ה לעזור לך היום?"
+          );
         }
-      } catch {}
+      } catch (error) {
+        console.error("Failed to fetch bot settings:", error);
+      }
     }
     fetchBotSettings();
   }, []);
@@ -126,22 +134,25 @@ export function ChatWidget({
   // Typing animation effect
   useEffect(() => {
     if (!isTyping || !fullAssistantMessage) return;
-    let words = fullAssistantMessage.split(" ");
+    const words = fullAssistantMessage.split(" ");
     let idx = 0;
-    let interval: NodeJS.Timeout;
+    // let interval: NodeJS.Timeout; // Removed declaration
     const msPerWord = 60000 / typingSpeed;
+    let intervalRef: NodeJS.Timeout | null = null; // Use a ref or ensure it's in scope for clearInterval
+
     function showNext() {
       idx++;
       setDisplayedAssistantMessage(words.slice(0, idx).join(" "));
       if (idx >= words.length) {
         setIsTyping(false);
         setShowFull(false);
-        clearInterval(interval);
+        if (intervalRef) clearInterval(intervalRef);
       }
     }
     setDisplayedAssistantMessage("");
-    interval = setInterval(showNext, msPerWord);
-    return () => clearInterval(interval);
+    const newInterval = setInterval(showNext, msPerWord);
+    intervalRef = newInterval; // Store in ref
+    return () => clearInterval(newInterval);
   }, [isTyping, fullAssistantMessage, typingSpeed]);
 
   useEffect(() => {
@@ -183,22 +194,23 @@ export function ChatWidget({
       // For now, assuming 'messages' is compatible or can be mapped.
       // The 'clientId' is not part of the new ChatRequestBody by default.
       // If needed, ChatRequestBody and backend should be updated.
-      const historyForAPI = messages.map(msg => ({
-        role: msg.role as 'user' | 'assistant' | 'system', // Cast if necessary
-        content: msg.content
+      const historyForAPI = messages.map((msg) => ({
+        role: msg.role as "user" | "assistant" | "system", // Cast if necessary
+        content: msg.content,
       }));
-      
+
       // Call the new API client
       const result = await postChatMessage({
         message: userMessage.content,
         history: historyForAPI.slice(0, -1), // Send history excluding the current user message
+        clientId: clientId as string, // Added clientId
       });
 
       // Animate bot response
-      setFullAssistantMessage(result.reply);
+      setFullAssistantMessage(result.response); // Changed from result.reply
       setIsTyping(true);
       // Adjust based on the new SourceDocumentDTO structure if needed for rendering
-      setLastSources(result.sourceDocuments || []); 
+      setLastSources(result.sourceDocuments || []);
       // citationMap is not directly provided by the new API response.
       // This will need to be handled: either remove citationMap logic,
       // adapt rendering to use only sourceDocuments, or modify backend to return it.
@@ -221,7 +233,7 @@ export function ChatWidget({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -248,11 +260,11 @@ export function ChatWidget({
         parts.push(
           <a
             key={`cite-${key++}`}
-            href={src.url || '#'}
-            target={src.url ? '_blank' : undefined}
+            href={src.url || "#"}
+            target={src.url ? "_blank" : undefined}
             rel="noopener noreferrer"
             className="text-blue-600 underline cursor-pointer hover:text-blue-800 mx-0.5"
-            title={src.fileName || src.url || 'Source'}
+            title={src.fileName || src.url || "Source"}
           >
             [{n}]
           </a>
@@ -270,13 +282,13 @@ export function ChatWidget({
   function renderSourcesFooter(sources: any[], citationMap: any) {
     if (!sources || Object.keys(citationMap).length === 0) return null;
     const items = Object.entries(citationMap).map(([n, src]: [string, any]) => {
-      let label = src.fileName || src.url || 'מקור לא ידוע';
-      let href = src.url || undefined;
+      const label = src.fileName || src.url || "מקור לא ידוע";
+      const href = src.url || undefined;
       return (
         <span key={n} className="mr-2">
           <a
-            href={href || '#'}
-            target={href ? '_blank' : undefined}
+            href={href || "#"}
+            target={href ? "_blank" : undefined}
             rel="noopener noreferrer"
             className="text-blue-600 underline hover:text-blue-800"
           >
@@ -297,7 +309,7 @@ export function ChatWidget({
       {/* Bot header */}
       <div className="flex items-center gap-3 px-4 py-2 border-b bg-white">
         <Image
-          src={avatarUrl || '/bot-avatar-default.png'}
+          src={avatarUrl || "/bot-avatar-default.png"}
           alt="Bot Avatar"
           width={40} // h-10 w-10 => 2.5rem * 16px/rem = 40px
           height={40}
@@ -305,7 +317,7 @@ export function ChatWidget({
           onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
             // Type the event parameter
             const target = e.target as HTMLImageElement;
-            target.src = '/bot-avatar-default.png';
+            target.src = "/bot-avatar-default.png";
           }}
         />
         <span className="font-bold text-lg text-gray-800">{botName}</span>
@@ -313,7 +325,7 @@ export function ChatWidget({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message, index) => {
-          const isAssistant = message.role === 'assistant';
+          const isAssistant = message.role === "assistant";
           const isLastAssistant = isAssistant && index === messages.length - 1;
           return (
             <motion.div
@@ -321,18 +333,26 @@ export function ChatWidget({
               variants={messageVariants}
               initial="hidden"
               animate="visible"
-              className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'}`}
+              className={`flex ${message.role === "user" ? "justify-start" : "justify-end"}`}
             >
               <div
                 className={`max-w-[80%] p-3 rounded-lg ${
-                  message.role === 'user'
-                    ? 'bg-blue-500 text-white rounded-tr-none'
-                    : 'bg-gray-100 text-gray-800 rounded-tl-none'
+                  message.role === "user"
+                    ? "bg-blue-500 text-white rounded-tr-none"
+                    : "bg-gray-100 text-gray-800 rounded-tl-none"
                 }`}
               >
-                {isAssistant && isLastAssistant && lastCitationMap && Object.keys(lastCitationMap).length > 0
-                  ? <>{renderCitations(message.content, lastCitationMap)}{renderSourcesFooter(lastSources, lastCitationMap)}</>
-                  : message.content}
+                {isAssistant &&
+                isLastAssistant &&
+                lastCitationMap &&
+                Object.keys(lastCitationMap).length > 0 ? (
+                  <>
+                    {renderCitations(message.content, lastCitationMap)}
+                    {renderSourcesFooter(lastSources, lastCitationMap)}
+                  </>
+                ) : (
+                  message.content
+                )}
               </div>
             </motion.div>
           );
@@ -350,14 +370,16 @@ export function ChatWidget({
                 {renderCitations(displayedAssistantMessage, lastCitationMap)}
                 <span className="inline-block w-4 animate-pulse">…</span>
               </span>
-              {showFull === false && fullAssistantMessage && displayedAssistantMessage !== fullAssistantMessage && (
-                <button
-                  className="ml-2 px-2 py-1 text-xs bg-blue-200 rounded hover:bg-blue-300 transition"
-                  onClick={handleShowFull}
-                >
-                  הצג תשובה מלאה
-                </button>
-              )}
+              {showFull === false &&
+                fullAssistantMessage &&
+                displayedAssistantMessage !== fullAssistantMessage && (
+                  <button
+                    className="ml-2 px-2 py-1 text-xs bg-blue-200 rounded hover:bg-blue-300 transition"
+                    onClick={handleShowFull}
+                  >
+                    הצג תשובה מלאה
+                  </button>
+                )}
               {renderSourcesFooter(lastSources, lastCitationMap)}
             </div>
           </motion.div>
@@ -386,8 +408,20 @@ export function ChatWidget({
           >
             {isLoading ? (
               <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
               </svg>
             ) : (
               translations.send

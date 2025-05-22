@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { auth } from '@/lib/firebase'; // Assuming Firebase is initialized here
-import { postChatMessage } from '@/services/apiClient'; // Use alias path
+import React, { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
+import { auth } from "@/lib/firebase"; // Assuming Firebase is initialized here
+import { postChatMessage } from "@/services/apiClient"; // Use alias path
 
 interface Message {
   role: string;
@@ -32,27 +32,27 @@ const messageVariants = {
 
 export function ChatMessages({ greeting, translations }: ChatMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Add greeting message if no messages exist
     if (messages.length === 0) {
-      setMessages([{ role: 'assistant', content: greeting }]);
+      setMessages([{ role: "assistant", content: greeting }]);
     }
   }, [greeting, messages.length]);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
     if (messagesEndRef.current) {
-      if (typeof messagesEndRef.current.scrollIntoView === 'function') {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      } else if (process.env.NODE_ENV === 'test') {
+      if (typeof messagesEndRef.current.scrollIntoView === "function") {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      } else if (process.env.NODE_ENV === "test") {
         // Mock for test environment if not present (though jest.setup.js should handle this)
-        console.log('Mocking scrollIntoView for ChatMessages in test');
+        console.log("Mocking scrollIntoView for ChatMessages in test");
         (messagesEndRef.current as any).scrollIntoView = () => {}; // Replaced jest.fn() for non-test type safety
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
       }
     }
   }, [messages]);
@@ -62,33 +62,36 @@ export function ChatMessages({ greeting, translations }: ChatMessagesProps) {
     try {
       setIsLoading(true);
       // Add user message
-      const userMessage = { role: 'user', content: inputValue.trim() };
-      setMessages(prev => [...prev, userMessage]);
-      setInputValue('');
+      const userMessage = { role: "user", content: inputValue.trim() };
+      setMessages((prev) => [...prev, userMessage]);
+      setInputValue("");
       // Ensure persistent clientId
-      let clientId = typeof window !== "undefined" ? localStorage.getItem('clientId') : null;
+      let clientId =
+        typeof window !== "undefined" ? localStorage.getItem("clientId") : null;
       if (typeof window !== "undefined" && !clientId) {
         clientId = crypto.randomUUID();
-        localStorage.setItem('clientId', clientId);
+        localStorage.setItem("clientId", clientId);
       }
       // Send to API
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      const headers: HeadersInit = { "Content-Type": "application/json" };
       const currentUser = auth.currentUser;
 
       if (currentUser) {
         try {
           const idToken = await currentUser.getIdToken();
-          headers['Authorization'] = `Bearer ${idToken}`;
-          console.log('ChatMessages: Sending with Authorization header.');
+          headers["Authorization"] = `Bearer ${idToken}`;
+          console.log("ChatMessages: Sending with Authorization header.");
         } catch (error) {
-          console.error('ChatMessages: Error getting ID token:', error);
+          console.error("ChatMessages: Error getting ID token:", error);
           // Decide how to handle token error:
           // 1. Send without token (will likely be rejected by backend)
           // 2. Prevent sending and show error to user
           // For now, it will proceed without the header if token retrieval fails.
         }
       } else {
-        console.warn('ChatMessages: No current user. Sending request without Authorization header.');
+        console.warn(
+          "ChatMessages: No current user. Sending request without Authorization header."
+        );
       }
 
       // Use the centralized API client function
@@ -100,23 +103,29 @@ export function ChatMessages({ greeting, translations }: ChatMessagesProps) {
         message: userMessage.content,
         clientId: clientId as string, // Ensure clientId is passed as string
       });
-      
+
       // Add bot response
       // The postChatMessage function already returns the parsed JSON data (ChatResponseBody)
       // and throws an error if the request failed, so data.error check might be less needed here
       // if the API consistently uses HTTP error statuses.
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.response },
+      ]);
     } catch (error: any) {
-      console.error('ChatMessages: Error in handleSend:', error.message);
+      console.error("ChatMessages: Error in handleSend:", error.message);
       // The error message from postChatMessage will be more specific.
-      setMessages(prev => [...prev, { role: 'assistant', content: `מצטער, אירעה שגיאה: ${error.message}` }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `מצטער, אירעה שגיאה: ${error.message}` },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -132,11 +141,11 @@ export function ChatMessages({ greeting, translations }: ChatMessagesProps) {
             variants={messageVariants}
             initial="hidden"
             animate="visible"
-            className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'}`}
+            className={`flex ${message.role === "user" ? "justify-start" : "justify-end"}`}
           >
             <div
               className={`max-w-[80%] p-3 rounded-xl shadow-sm text-base font-normal break-words whitespace-pre-line transition-all duration-200
-                ${message.role === 'user' ? 'bg-blue-500 text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none'}`}
+                ${message.role === "user" ? "bg-blue-500 text-white rounded-tr-none" : "bg-gray-100 text-gray-800 rounded-tl-none"}`}
             >
               {message.content}
             </div>
@@ -167,9 +176,25 @@ export function ChatMessages({ greeting, translations }: ChatMessagesProps) {
             aria-label={isLoading ? "שולח הודעה" : translations.send}
           >
             {isLoading ? (
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              <svg
+                className="animate-spin h-5 w-5"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
               </svg>
             ) : (
               translations.send
