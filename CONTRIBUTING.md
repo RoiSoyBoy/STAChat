@@ -1,36 +1,62 @@
-# Contributing to NewChatBot
+# Contributing
 
-## Folder Structure
-- **src/ingestion/pdf/** — PDF ingestion logic
-- **src/ingestion/web/** — Web ingestion logic
-- **src/ingestion/shared/** — Shared utilities (chunkText, embedding, tagging)
-- **src/chat/** — Chat logic, prompt helpers
-- **src/components/** — React components
-- **src/__tests__/** — All tests
-- **src/app/api/archive/** — Archived endpoints/components
+We welcome contributions to this project! Please follow these guidelines to ensure a smooth process.
 
-## Using Shared Utilities
-- Always use `chunkText`, `generateEmbeddings`, and `classifyTagsWithOpenAI` from `src/ingestion/shared/` for chunking, embedding, and tagging.
-- Do not duplicate this logic in endpoints or components.
+## Getting Started
 
-## Adding New Ingestion or Chat Features
-- Add new ingestion strategies (e.g., DOCX, TXT) as a new folder in `src/ingestion/`.
-- Add new chat features in `src/chat/` or as helpers in `src/chat/prompt/`.
-- Import shared utilities as needed.
-- Update API routes to import from these locations.
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd <repository-name>
+    ```
 
-## Writing/Updating Tests
-- Add or update tests in `src/__tests__/`.
-- Cover all new logic, especially for chunking, embedding, tagging, and chat.
-- Use mocks for external APIs (OpenAI, Firebase) where possible.
-- Run tests with `npm test` or `yarn test` before submitting changes.
+2.  **Create a new branch:**
+    It's important to create a new branch for each feature or bug fix you work on. This keeps the main branch clean and makes it easier to review your changes.
+    ```bash
+    git checkout -b feature/your-feature-name  # For new features
+    # or
+    git checkout -b fix/your-bug-fix-name    # For bug fixes
+    ```
 
-## Archiving Legacy Code
-- Move unused or superseded endpoints/components to `src/app/api/archive/` or `src/components/archive/`.
-- Do not delete immediately; keep for 1-2 release cycles.
-- Add a TODO comment with the reason for archival and the date.
+## Making Changes
 
-## Code Review & PRs
-- Ensure all tests pass before requesting review.
-- Add clear comments and summaries for new modules.
-- Reference this guide in your PR description. 
+1.  **Follow Style Guides:**
+    *   Ensure your code adheres to the project's coding style guides. We use Prettier for code formatting and ESLint for linting.
+    *   Run `npm run lint` and `npm run format` before committing your changes to catch any issues.
+
+2.  **Write Clear Commit Messages:**
+    *   Follow conventional commit message formats (e.g., `feat: add new login button`, `fix: resolve issue with user authentication`).
+
+## Submitting Pull Requests (PRs)
+
+1.  **Push your branch:**
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+
+2.  **Open a Pull Request:**
+    *   Go to the repository on GitHub (or your Git hosting platform).
+    *   Click on "New pull request".
+    *   Choose your branch to compare with the `main` (or `develop`) branch.
+    *   Provide a clear title and description for your PR, explaining the changes you've made and why.
+    *   Link to any relevant issues.
+
+3.  **Code Review:**
+    *   At least one other contributor will review your PR.
+    *   Address any feedback or requested changes.
+    *   Once approved, your PR will be merged.
+
+## Running Tests
+
+Ensure all tests pass before submitting your PR.
+
+*   **Run unit tests:**
+    ```bash
+    npm test
+    ```
+*   **Run end-to-end tests (if applicable):**
+    ```bash
+    npm run cypress:run
+    ```
+
+Thank you for contributing!

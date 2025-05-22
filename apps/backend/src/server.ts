@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+import errorHandler from './middleware/errorHandler';
+
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -24,10 +26,7 @@ import v1Router from './api/v1'; // Import the v1 router
 app.use('/api/v1', v1Router); // Use the v1 router for all /api/v1 routes
 
 // Global Error Handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!', message: err.message });
-});
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Backend server is listening on port ${port}`);

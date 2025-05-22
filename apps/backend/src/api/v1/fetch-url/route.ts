@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import logger, { sanitizeError } from '@/lib/logger';
+import { ApiError } from '@/middleware/errorHandler';
 import { adminDb, getAuth } from '@/lib/firebaseAdmin'; // Combined and updated import
 import { extractMainContentFromHtml } from '@/lib/extractMainContentFromHtml'; // Import our custom HTML extractor
 // import axios from 'axios'; // Replaced by Firecrawl fetch
 import { fetchFirecrawlData } from '@/lib/firecrawl'; // Import Firecrawl fetch function
 import { OpenAI } from 'openai';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { classifyTagsWithOpenAI } from '@/ingestion/shared/classifyTagsWithOpenAI';
-import { chunkText } from '@/ingestion/shared/chunkText';
+import { classifyTagsWithOpenAI } from '@/lib/ingestion/classifyTagsWithOpenAI';
+import { chunkText } from '@/lib/chunkText'; // Assuming this is the correct one, alternative is 'shared/chunkText'
 import { generateEmbeddings } from '@/lib/embedding';
 import { extractQAFromTextWithLLM, QA } from '@/lib/preprocess';
 
@@ -21,7 +23,7 @@ export const dynamic = 'force-dynamic';
 
 // Helper: Check if URL already processed for user
 async function isUrlIndexed(userId: string, url: string): Promise<boolean> {
-  console.log(`[Auth] Checking if URL is indexed for userId: ${userId}, url: ${url}`);
+  logger.debug({ userId, url }, '[Auth] Checking if URL is indexed');
   const snapshot = await adminDb
     .collection('web_uploads')
     .where('userId', '==', userId)
@@ -32,117 +34,83 @@ async function isUrlIndexed(userId: string, url: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
-  console.log(`[API /api/fetch-url] Received POST request. Headers:`, JSON.stringify(Object.fromEntries(req.headers.entries())));
+  logger.info(`[API /api/fetch-url] Received POST request. Headers: ${JSON.stringify(Object.fromEntries(req.headers.entries()))}`);
   try {
+    // This initial try block is for the main processing logic.
+    // Specific early exits (auth, body parsing) will throw ApiError.
     const authHeader = req.headers.get('authorization');
     let userId: string;
 
     if (process.env.NODE_ENV === 'development') {
       userId = 'dev-user-id'; // Align with chat and pdf processing for dev
-      console.log('[API /api/fetch-url] DEVELOPMENT MODE: Using userId:', userId);
+      logger.info('[API /api/fetch-url] DEVELOPMENT MODE: Using userId: %s', userId);
     } else {
-      // This block would contain production authentication logic
-      // For now, as it's commented out, we'll add a fallback,
-      // but ideally, production would enforce auth.
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        console.error('[Auth] Missing or invalid auth token in non-dev environment.');
-        return NextResponse.json({ error: 'Missing or invalid auth token' }, { status: 401 });
+        logger.warn('[Auth] Missing or invalid auth token in non-dev environment.');
+        throw new ApiError(401, 'Missing or invalid authorization token.');
       }
       const idToken = authHeader.split(' ')[1];
       try {
-        console.log('[Auth] Verifying ID token...');
+        logger.debug('[Auth] Verifying ID token...');
         const decoded = await getAuth().verifyIdToken(idToken);
         userId = decoded.uid;
-        console.log(`[Auth] Token verified. UserId: ${userId}`);
+        logger.info('[Auth] Token verified. UserId: %s', userId);
         if (!userId) {
-          console.error('[Auth] UserID not found in decoded token.');
-          return NextResponse.json({ error: 'User not found after token verification' }, { status: 401 });
+          logger.error('[Auth] UserID not found in decoded token.');
+          throw new ApiError(401, 'User not found after token verification.');
         }
       } catch (e: any) {
-        console.error('[Auth] Invalid or expired auth token:', e.message);
-        return NextResponse.json({ error: 'Invalid or expired auth token', details: e.message }, { status: 401 });
+        logger.error({ err: e }, '[Auth] Invalid or expired auth token.');
+        throw new ApiError(401, `Invalid or expired auth token: ${e.message}`);
       }
     }
-    // Ensure userId is set
-    if (!userId) {
-      console.error('[API /api/fetch-url] CRITICAL: userId not determined.');
-      return NextResponse.json({ error: 'Internal Server Error: User ID could not be determined.' }, { status: 500 });
+
+    if (!userId) { // Should be caught by earlier checks, but as a safeguard
+      logger.error('[API /api/fetch-url] CRITICAL: userId not determined after auth block.');
+      throw new ApiError(500, 'Internal Server Error: User ID could not be determined.', false);
     }
     
-    // --- Authentication ---
-    // Original commented out block:
-    // if (process.env.NODE_ENV !== 'development' || (authHeader && authHeader.startsWith('Bearer '))) {
-    //   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    //     console.error('[Auth] Missing or invalid auth token.');
-    //     return NextResponse.json({ error: 'Missing or invalid auth token' }, { status: 401 });
-    //   }
-    //   const idToken = authHeader.split(' ')[1];
-    //   try {
-    //     console.log('[Auth] Verifying ID token...');
-    //     const decoded = await getAuth().verifyIdToken(idToken);
-    //     userId = decoded.uid;
-    //     console.log(`[Auth] Token verified. UserId: ${userId}`);
-    //     if (!userId) {
-    //       console.error('[Auth] UserID not found in decoded token.');
-    //       return NextResponse.json({ error: 'User not found after token verification' }, { status: 401 });
-    //     }
-    //   } catch (e: any) {
-    //     console.error('[Auth] Invalid or expired auth token:', e.message);
-    //     return NextResponse.json({ error: 'Invalid or expired auth token', details: e.message }, { status: 401 });
-    //   }
-    // } else {
-    //   console.log('[Auth] Skipping auth for local development, using test-user.');
-    // }
-    console.log(`[Auth] Using effective UserId: ${userId}`);
-
+    logger.info(`[Auth] Using effective UserId: ${userId}`);
 
     // Parse body
     let urls;
     try {
       const body = await req.json();
       urls = body.urls;
-      console.log('[API /api/fetch-url] Parsed request body:', body);
+      logger.debug({ body }, '[API /api/fetch-url] Parsed request body');
     } catch (e: any) {
-      console.error('[API /api/fetch-url] Error parsing JSON body:', e.message);
-      return NextResponse.json({ error: 'Invalid JSON body', details: e.message }, { status: 400 });
+      logger.warn({ err: e }, '[API /api/fetch-url] Error parsing JSON body.');
+      throw new ApiError(400, `Invalid JSON body: ${e.message}`);
     }
 
-    if (!Array.isArray(urls) || urls.some((u) => typeof u !== 'string')) {
-      console.error('[API /api/fetch-url] Invalid URLs in request:', urls);
-      return NextResponse.json({ error: 'Invalid URLs format' }, { status: 400 });
+    if (!Array.isArray(urls) || urls.some((u) => typeof u !== 'string' || !u.trim())) {
+      logger.warn({ urls }, '[API /api/fetch-url] Invalid URLs format in request.');
+      throw new ApiError(400, 'Invalid URLs format. Expects an array of non-empty strings.');
     }
 
     // --- Environment Variable Checks ---
     const openaiApiKey = process.env.OPENAI_API_KEY;
     const pineconeApiKey = process.env.PINECONE_API_KEY;
     const pineconeIndexName = process.env.PINECONE_INDEX;
-    const firecrawlApiKey = process.env.FIRECRAWL_API_KEY; // Check here as well
+    const firecrawlApiKey = process.env.FIRECRAWL_API_KEY;
 
     if (!openaiApiKey) {
-      console.error('ERROR: OPENAI_API_KEY environment variable is not defined in /api/fetch-url.');
-      throw new Error('CRITICAL: OPENAI_API_KEY is missing for /api/fetch-url.');
-    } else {
-      console.log('[API /api/fetch-url] OpenAI API Key loaded.');
+      logger.error('CRITICAL: OPENAI_API_KEY environment variable is not defined in /api/fetch-url.');
+      throw new ApiError(500, 'CRITICAL: Server configuration error (OpenAI API Key).', false);
     }
     if (!pineconeApiKey) {
-      console.error('ERROR: PINECONE_API_KEY environment variable is not defined in /api/fetch-url.');
-      throw new Error('CRITICAL: PINECONE_API_KEY is missing for /api/fetch-url.');
-    } else {
-      console.log('[API /api/fetch-url] Pinecone API Key loaded.');
+      logger.error('CRITICAL: PINECONE_API_KEY environment variable is not defined in /api/fetch-url.');
+      throw new ApiError(500, 'CRITICAL: Server configuration error (Pinecone API Key).', false);
     }
     if (!pineconeIndexName) {
-      console.error('ERROR: PINECONE_INDEX environment variable is not defined in /api/fetch-url.');
-      throw new Error('CRITICAL: PINECONE_INDEX is missing for /api/fetch-url.');
-    } else {
-      console.log('[API /api/fetch-url] Pinecone Index Name loaded.');
+      logger.error('CRITICAL: PINECONE_INDEX environment variable is not defined in /api/fetch-url.');
+      throw new ApiError(500, 'CRITICAL: Server configuration error (Pinecone Index).', false);
     }
     if (!firecrawlApiKey) {
-      // This check is also in `fetchFirecrawlData`, but good for early exit.
-      console.error('ERROR: FIRECRAWL_API_KEY environment variable is not defined (checked in /api/fetch-url).');
-      throw new Error('CRITICAL: FIRECRAWL_API_KEY is missing for /api/fetch-url.');
-    } else {
-      console.log('[API /api/fetch-url] Firecrawl API Key loaded (checked in /api/fetch-url).');
+      logger.error('CRITICAL: FIRECRAWL_API_KEY environment variable is not defined (checked in /api/fetch-url).');
+      throw new ApiError(500, 'CRITICAL: Server configuration error (Firecrawl API Key).', false);
     }
+    logger.info('[API /api/fetch-url] All required API keys loaded.');
 
 
     const openai = new OpenAI({ apiKey: openaiApiKey });
@@ -170,20 +138,20 @@ export async function POST(req: NextRequest) {
         // Fetch content using Firecrawl
         let firecrawlResult;
         try {
-          console.log(`[API /api/fetch-url] Attempting to fetch Firecrawl data for URL: ${url}`);
+          logger.info({ url }, `[API /api/fetch-url] Attempting to fetch Firecrawl data for URL.`);
           // Use the fetchFirecrawlData function from src/lib/firecrawl.ts
           firecrawlResult = await fetchFirecrawlData(url);
-          console.log(`[API /api/fetch-url] Firecrawl result object for ${url} (metadata & snippet):`, JSON.stringify({ ...firecrawlResult, content: firecrawlResult.content ? firecrawlResult.content.substring(0, 500) + '...' : null, markdown: firecrawlResult.markdown ? firecrawlResult.markdown.substring(0,500) + '...' : null }, null, 2));
+          logger.debug({ url, firecrawlResult: { ...firecrawlResult, content: firecrawlResult.content ? firecrawlResult.content.substring(0, 500) + '...' : null, markdown: firecrawlResult.markdown ? firecrawlResult.markdown.substring(0,500) + '...' : null } }, `[API /api/fetch-url] Firecrawl result object.`);
           // Log a preview of the content separately as requested for debugging
-          console.log(`[API /api/fetch-url] BEGIN PREVIEW Firecrawl content for ${url} (first 1000 chars):`);
+          logger.debug({ url }, `[API /api/fetch-url] BEGIN PREVIEW Firecrawl content (first 1000 chars):`);
           if (firecrawlResult.content) {
-            console.log(firecrawlResult.content.slice(0, 1000));
+            logger.debug(firecrawlResult.content.slice(0, 1000));
           } else {
-            console.log("firecrawlResult.content is null or undefined");
+            logger.debug("[API /api/fetch-url] firecrawlResult.content is null or undefined");
           }
-          console.log(`[API /api/fetch-url] END PREVIEW Firecrawl content for ${url}`);
+          logger.debug({ url }, `[API /api/fetch-url] END PREVIEW Firecrawl content.`);
         } catch (e: any) {
-          console.error(`[API /api/fetch-url] Firecrawl fetch call failed for ${url}:`, e.message);
+          logger.error({ err: e, url }, `[API /api/fetch-url] Firecrawl fetch call failed.`);
           // The detailed error (including 401) should be logged by fetchFirecrawlData itself.
           results.push({ url, status: 'error', chunkCount: 0, error: `firecrawl fetch failed: ${e.message}` });
           logEvent.status = 'error';
@@ -195,26 +163,26 @@ export async function POST(req: NextRequest) {
         // Extract main content
         let mainText = '';
         if (firecrawlResult?.html) {
-          console.log(`[API /api/fetch-url] Extracting content from HTML for ${url} using custom extractor.`);
+          logger.info({ url }, `[API /api/fetch-url] Extracting content from HTML using custom extractor.`);
           mainText = extractMainContentFromHtml(firecrawlResult.html);
           // Log preview of custom extracted text
-          console.log(`[API /api/fetch-url] BEGIN PREVIEW Custom Extracted content for ${url} (first 1000 chars):`);
-          console.log(mainText.slice(0, 1000));
-          console.log(`[API /api/fetch-url] END PREVIEW Custom Extracted content for ${url}`);
+          logger.debug({ url }, `[API /api/fetch-url] BEGIN PREVIEW Custom Extracted content (first 1000 chars):`);
+          logger.debug(mainText.slice(0, 1000));
+          logger.debug({ url }, `[API /api/fetch-url] END PREVIEW Custom Extracted content.`);
         } else if (firecrawlResult?.content) {
-          console.log(`[API /api/fetch-url] Using Firecrawl's 'content' field for ${url} as HTML was not available.`);
+          logger.info({ url }, `[API /api/fetch-url] Using Firecrawl's 'content' field as HTML was not available.`);
           mainText = firecrawlResult.content;
            // Log preview of Firecrawl's direct content
-          console.log(`[API /api/fetch-url] BEGIN PREVIEW Firecrawl direct content for ${url} (first 1000 chars):`);
-          console.log(mainText.slice(0, 1000));
-          console.log(`[API /api/fetch-url] END PREVIEW Firecrawl direct content for ${url}`);
+          logger.debug({ url }, `[API /api/fetch-url] BEGIN PREVIEW Firecrawl direct content (first 1000 chars):`);
+          logger.debug(mainText.slice(0, 1000));
+          logger.debug({ url }, `[API /api/fetch-url] END PREVIEW Firecrawl direct content.`);
         } else {
-          console.log(`[API /api/fetch-url] No HTML or content field from Firecrawl for ${url}.`);
+          logger.warn({ url }, `[API /api/fetch-url] No HTML or content field from Firecrawl.`);
         }
 
         if (!mainText || mainText.length < 100) {
           // Add the actual result to the log for debugging lack of content
-          console.log(`[DEBUG] Insufficient content after extraction for ${url}:`, JSON.stringify(firecrawlResult, null, 2), `Extracted text length: ${mainText.length}`);
+          logger.warn({ url, firecrawlResult, mainTextLength: mainText.length }, `[API /api/fetch-url] Insufficient content after extraction.`);
           results.push({ url, status: 'error', chunkCount: 0, error: 'no significant content after extraction' });
           logEvent.status = 'error';
           logEvent.error = 'no significant content after extraction';
@@ -222,11 +190,12 @@ export async function POST(req: NextRequest) {
           continue;
         }
         // Chunk text
-        console.log(`[API /api/fetch-url] Attempting to chunk mainText for ${url}. Main text length: ${mainText.length}`);
+        logger.info({ url, mainTextLength: mainText.length }, `[API /api/fetch-url] Attempting to chunk mainText.`);
         const chunks = chunkText(mainText);
-        console.log(`[API /api/fetch-url] Text chunked into ${chunks.length} chunks for ${url}.`);
+        logger.info({ url, chunkCount: chunks.length }, `[API /api/fetch-url] Text chunked.`);
 
         if (chunks.length === 0) {
+          logger.warn({ url }, "[API /api/fetch-url] No chunks after processing.");
           results.push({ url, status: 'error', chunkCount: 0, error: 'no chunks after processing' });
           logEvent.status = 'error';
           logEvent.error = 'no chunks after processing';
@@ -234,32 +203,32 @@ export async function POST(req: NextRequest) {
           continue;
         }
         // --- Structured Q&A Extraction (ported from extract-url) ---
-        console.log(`[API /api/fetch-url] Starting Q&A extraction for ${url}.`);
+        logger.info({ url }, `[API /api/fetch-url] Starting Q&A extraction.`);
         let qas: QA[] = [];
         try {
           qas = await extractQAFromTextWithLLM(mainText);
-          console.log(`[API /api/fetch-url] Q&A extraction completed for ${url}. Found ${qas.length} Q&A pairs.`);
+          logger.info({ url, qaCount: qas.length }, `[API /api/fetch-url] Q&A extraction completed.`);
         } catch (err: any) {
-          console.error(`[API /api/fetch-url] Q&A extraction failed for ${url}:`, err.message, err.stack);
+          logger.error({ err, url }, `[API /api/fetch-url] Q&A extraction failed.`);
           // Decide if this is a fatal error for the URL or if we can continue without Q&As
           logEvent.qaExtractionError = err.message;
           qas = []; // Ensure qas is an empty array to proceed
         }
         
-        console.log(`[API /api/fetch-url] Processing ${qas.length} Q&A pairs for ${url}.`);
+        logger.info({ url, qaCount: qas.length }, `[API /api/fetch-url] Processing Q&A pairs.`);
         const qaPineconeVectors: any[] = []; // Initialize array for Q&A Pinecone vectors
 
         for (let i = 0; i < qas.length; i++) {
           const qa = qas[i];
-          console.log(`[API /api/fetch-url] Processing Q&A ${i+1}/${qas.length} for ${url}: "${qa.question.substring(0,50)}..."`);
+          logger.debug({ url, qaIndex: i + 1, totalQas: qas.length, questionPreview: qa.question.substring(0,50) }, `[API /api/fetch-url] Processing Q&A.`);
           let embedding: number[] | null = null; // Ensure embedding is typed correctly
           try {
-            console.log(`[API /api/fetch-url] Generating embedding for Q&A ${i+1} question for ${url}.`);
+            logger.debug({ url, qaIndex: i + 1 }, `[API /api/fetch-url] Generating embedding for Q&A question.`);
             const embeddingArr = await generateEmbeddings([qa.question]);
             embedding = embeddingArr[0]; // embeddingArr is number[][], so embeddingArr[0] is number[]
-            console.log(`[API /api/fetch-url] Embedding generated for Q&A ${i+1} question for ${url}.`);
+            logger.debug({ url, qaIndex: i + 1 }, `[API /api/fetch-url] Embedding generated for Q&A question.`);
           } catch (embedErr: any) {
-            console.error(`[API /api/fetch-url] Embedding error for Q&A ${i+1} for ${url}:`, embedErr.message, embedErr.stack);
+            logger.error({ err: embedErr, url, qaIndex: i + 1 }, `[API /api/fetch-url] Embedding error for Q&A.`);
             logEvent.qaEmbeddingError = `Q&A ${i+1}: ${embedErr.message}`;
             // Continue to next Q&A if embedding fails for this one
           }
@@ -281,7 +250,7 @@ export async function POST(req: NextRequest) {
           }
 
           try {
-            console.log(`[API /api/fetch-url] Saving Q&A ${i+1} to 'training' collection for ${url}.`);
+            logger.debug({ url, qaIndex: i + 1 }, `[API /api/fetch-url] Saving Q&A to 'training' collection.`);
             await adminDb.collection('training').add({
               question: qa.question,
               answer: qa.answer,
@@ -289,14 +258,14 @@ export async function POST(req: NextRequest) {
               embedding,
               timestamp: Date.now(),
             });
-            console.log(`[API /api/fetch-url] Q&A ${i+1} saved to 'training' collection for ${url}.`);
+            logger.debug({ url, qaIndex: i + 1 }, `[API /api/fetch-url] Q&A saved to 'training' collection.`);
           } catch (firestoreErr: any) {
-            console.error(`[API /api/fetch-url] Firestore error saving Q&A ${i+1} to 'training' for ${url}:`, firestoreErr.message, firestoreErr.stack);
+            logger.error({ err: firestoreErr, url, qaIndex: i + 1 }, `[API /api/fetch-url] Firestore error saving Q&A to 'training'.`);
             logEvent.qaTrainingSaveError = `Q&A ${i+1}: ${firestoreErr.message}`;
           }
 
           try {
-            console.log(`[API /api/fetch-url] Saving Q&A ${i+1} to 'trainingEmbeddings' for ${url}.`);
+            logger.debug({ url, qaIndex: i + 1 }, `[API /api/fetch-url] Saving Q&A to 'trainingEmbeddings'.`);
             await adminDb
               .collection('trainingEmbeddings')
               .doc(userId)
@@ -308,46 +277,46 @@ export async function POST(req: NextRequest) {
                 embedding,
                 timestamp: Date.now(),
               });
-            console.log(`[API /api/fetch-url] Q&A ${i+1} saved to 'trainingEmbeddings' for ${url}.`);
+            logger.debug({ url, qaIndex: i + 1 }, `[API /api/fetch-url] Q&A saved to 'trainingEmbeddings'.`);
           } catch (firestoreEmbedErr: any) {
-            console.error(`[API /api/fetch-url] Error saving Q&A ${i+1} to 'trainingEmbeddings' for ${url}:`, firestoreEmbedErr.message, firestoreEmbedErr.stack);
+            logger.error({ err: firestoreEmbedErr, url, qaIndex: i + 1 }, `[API /api/fetch-url] Error saving Q&A to 'trainingEmbeddings'.`);
             logEvent.qaUserSaveError = `Q&A ${i+1}: ${firestoreEmbedErr.message}`;
           }
         }
-        console.log(`[API /api/fetch-url] Finished processing Q&A pairs for ${url}.`);
+        logger.info({ url }, `[API /api/fetch-url] Finished processing Q&A pairs.`);
 
         // Upsert Q&A vectors to Pinecone
         if (qaPineconeVectors.length > 0) {
-          console.log(`[API /api/fetch-url] Attempting to upsert ${qaPineconeVectors.length} Q&A vectors to Pinecone for ${url}.`);
+          logger.info({ url, count: qaPineconeVectors.length }, `[API /api/fetch-url] Attempting to upsert Q&A vectors to Pinecone.`);
           try {
             await index.upsert(qaPineconeVectors);
-            console.log(`[API /api/fetch-url] Successfully upserted ${qaPineconeVectors.length} Q&A vectors to Pinecone for ${url}.`);
+            logger.info({ url, count: qaPineconeVectors.length }, `[API /api/fetch-url] Successfully upserted Q&A vectors to Pinecone.`);
             logEvent.qaPineconeUpsertCount = qaPineconeVectors.length;
           } catch (e: any) {
-            console.error(`[API /api/fetch-url] Pinecone upsert failed for Q&A vectors for ${url}:`, e.message, e.stack);
+            logger.error({ err: e, url }, `[API /api/fetch-url] Pinecone upsert failed for Q&A vectors.`);
             logEvent.qaPineconeUpsertError = `pinecone Q&A error: ${e.message || e}`;
             // Decide if this is critical enough to mark the whole URL processing as an error or partial_error
             // For now, we'll log it and continue with chunk processing.
           }
         } else {
-          console.log(`[API /api/fetch-url] No Q&A vectors to upsert to Pinecone for ${url}.`);
+          logger.info({ url }, `[API /api/fetch-url] No Q&A vectors to upsert to Pinecone.`);
         }
         // --- End Q&A Extraction & Pinecone Upsert ---
 
         // Tag classification (limit to 10 chunks)
         const maxChunksForTags = 10; // Declare before use
-        console.log(`[API /api/fetch-url] Starting tag classification for ${url}. Processing up to ${maxChunksForTags} chunks.`);
+        logger.info({ url, maxChunksForTags }, `[API /api/fetch-url] Starting tag classification.`);
         const tagChunks = chunks.slice(0, maxChunksForTags);
         let tagsArr: string[][] = [];
         for (let i = 0; i < tagChunks.length; i++) {
           const chunkToTag = tagChunks[i];
-          console.log(`[API /api/fetch-url] Classifying tags for chunk ${i+1}/${tagChunks.length} for ${url}.`);
+          logger.debug({ url, chunkIndex: i + 1, totalTagChunks: tagChunks.length }, `[API /api/fetch-url] Classifying tags for chunk.`);
           try {
             const tags = await classifyTagsWithOpenAI(chunkToTag);
             tagsArr.push(tags);
-            console.log(`[API /api/fetch-url] Tags classified for chunk ${i+1} for ${url}:`, tags);
+            logger.debug({ url, chunkIndex: i + 1, tags }, `[API /api/fetch-url] Tags classified for chunk.`);
           } catch (tagErr: any) {
-            console.error(`[API /api/fetch-url] Tag classification error for chunk ${i+1} for ${url}:`, tagErr.message, tagErr.stack);
+            logger.error({ err: tagErr, url, chunkIndex: i + 1 }, `[API /api/fetch-url] Tag classification error for chunk.`);
             tagsArr.push(['general', 'tagging-error']); // Default on error
             logEvent.taggingError = `Chunk ${i+1}: ${tagErr.message}`;
           }
@@ -356,16 +325,16 @@ export async function POST(req: NextRequest) {
         while (tagsArr.length < chunks.length) {
           tagsArr.push(['general', 'uncategorized']);
         }
-        console.log(`[API /api/fetch-url] Tag classification completed for ${url}.`);
+        logger.info({ url }, `[API /api/fetch-url] Tag classification completed.`);
 
         // Embedding and Pinecone upsert
-        console.log(`[API /api/fetch-url] Starting chunk embedding generation for ${chunks.length} chunks for ${url}.`);
+        logger.info({ url, chunkCount: chunks.length }, `[API /api/fetch-url] Starting chunk embedding generation.`);
         let embeddings: number[][] = [];
         try {
           embeddings = await generateEmbeddings(chunks);
-          console.log(`[API /api/fetch-url] Chunk embedding generation completed for ${url}. Received ${embeddings.length} embeddings.`);
+          logger.info({ url, embeddingCount: embeddings.length }, `[API /api/fetch-url] Chunk embedding generation completed.`);
         } catch (e: any) {
-          console.error(`[API /api/fetch-url] Chunk embedding generation failed for ${url}:`, e.message, e.stack);
+          logger.error({ err: e, url }, `[API /api/fetch-url] Chunk embedding generation failed.`);
           results.push({ url, status: 'error', chunkCount: 0, error: 'chunk embedding error' });
           logEvent.status = 'error';
           logEvent.error = `chunk embedding error: ${e.message}`;
@@ -374,7 +343,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (embeddings.length !== chunks.length) {
-          console.error(`[API /api/fetch-url] Mismatch between chunk count (${chunks.length}) and embedding count (${embeddings.length}) for ${url}.`);
+          logger.error({ url, chunkCount: chunks.length, embeddingCount: embeddings.length }, `[API /api/fetch-url] Mismatch between chunk count and embedding count.`);
           results.push({ url, status: 'error', chunkCount: 0, error: 'embedding count mismatch' });
           logEvent.status = 'error';
           logEvent.error = 'embedding count mismatch';
@@ -395,12 +364,12 @@ export async function POST(req: NextRequest) {
           },
         }));
 
-        console.log(`[API /api/fetch-url] Attempting to upsert ${vectors.length} vectors to Pinecone for ${url}.`);
+        logger.info({ url, vectorCount: vectors.length }, `[API /api/fetch-url] Attempting to upsert vectors to Pinecone.`);
         try {
           await index.upsert(vectors);
-          console.log(`[API /api/fetch-url] Successfully upserted ${vectors.length} vectors to Pinecone for ${url}.`);
+          logger.info({ url, vectorCount: vectors.length }, `[API /api/fetch-url] Successfully upserted vectors to Pinecone.`);
         } catch (e: any) { 
-          console.error(`[API /api/fetch-url] Pinecone upsert failed for ${url}:`, e.message, e.stack);
+          logger.error({ err: e, url }, `[API /api/fetch-url] Pinecone upsert failed.`);
           results.push({ url, status: 'error', chunkCount: 0, error: `pinecone error: ${e.message || e}` });
           logEvent.status = 'error';
           logEvent.error = `pinecone error: ${e.message || e}`; 
@@ -409,7 +378,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Save metadata to Firestore for each chunk
-        console.log(`[API /api/fetch-url] Saving chunk metadata to Firestore for ${url}.`);
+        logger.info({ url }, `[API /api/fetch-url] Saving chunk metadata to Firestore.`);
         const batch = adminDb.batch();
         vectors.forEach((vec: any, i: number) => { // vec is already typed from map
           const chunkDocId = vec.id; // Use the same ID for Firestore doc as Pinecone vector
@@ -430,9 +399,9 @@ export async function POST(req: NextRequest) {
         });
         try {
           await batch.commit();
-          console.log(`[API /api/fetch-url] Chunk metadata saved to Firestore for ${url}.`);
+          logger.info({ url }, `[API /api/fetch-url] Chunk metadata saved to Firestore.`);
         } catch (firestoreBatchErr: any) {
-          console.error(`[API /api/fetch-url] Firestore batch commit failed for ${url}:`, firestoreBatchErr.message, firestoreBatchErr.stack);
+          logger.error({ err: firestoreBatchErr, url }, `[API /api/fetch-url] Firestore batch commit failed.`);
           // This is tricky, Pinecone succeeded but Firestore failed.
           // Consider compensation logic or just log thoroughly.
           logEvent.status = 'partial_error'; // Custom status
@@ -454,24 +423,38 @@ export async function POST(req: NextRequest) {
         await adminDb.collection('web_uploads').add(logEvent); // Final log for the URL
 
       } catch (err: any) {
-        console.error(`[API /api/fetch-url] Uncaught processing error for ${url}:`, err.message, err.stack);
+        logger.error({ err, url, logEvent }, `[API /api/fetch-url] Uncaught processing error for URL.`);
         results.push({ url, status: 'error', chunkCount: 0, error: `internal error: ${err.message}` });
-        logEvent.status = 'error';
-        logEvent.error = `internal error: ${err.message || err}`;
+        // Ensure logEvent is updated before saving if it hasn't been
+        if (logEvent.status !== 'error' && logEvent.status !== 'partial_error') {
+          logEvent.status = 'error';
+          logEvent.error = `internal error: ${err.message || err}`;
+        }
         logEvent.completedAt = Date.now(); // Mark completion time even for errors
-        await adminDb.collection('web_uploads').add(logEvent);
+        try {
+            await adminDb.collection('web_uploads').add(logEvent);
+        } catch (dbErr) {
+            logger.error({ err: dbErr, originalError: err, url }, "Failed to log error event to web_uploads");
+        }
       }
     } // End of for loop for URLs
 
-    console.log("[API /api/fetch-url] Finished processing all URLs. Sending response:", results);
+    logger.info({ results }, "[API /api/fetch-url] Finished processing all URLs. Sending response.");
     return NextResponse.json({ results });
 
   } catch (error: any) { 
-    console.error('[API /api/fetch-url] Top-level error in POST handler:', error.message, error.stack);
-    if (error.message.includes('CRITICAL:')) { 
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json({ error: 'Internal server error in /api/fetch-url', details: error.message }, { status: 500 });
+    logger.error({ err: error, path: req.nextUrl.pathname, method: req.method }, 'Top-level error in POST /api/fetch-url');
+    
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const sanitized = sanitizeError(error);
+
+    return NextResponse.json(
+      { 
+        status: statusCode >= 500 ? 'error' : 'fail',
+        ...sanitized
+      },
+      { status: statusCode }
+    );
   }
 }
 

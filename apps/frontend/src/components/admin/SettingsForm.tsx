@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image'; // Import next/image
 import { toast } from 'react-toastify';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -157,7 +158,13 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
               disabled={saving}
             />
             {avatarUrl && /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(avatarUrl) && (
-              <img src={avatarUrl} alt="Bot Avatar" className="h-16 w-16 rounded-full border mt-2 mx-auto" />
+              <Image 
+                src={avatarUrl} 
+                alt="Bot Avatar" 
+                width={64} // h-16 w-16 => 4rem * 16px/rem = 64px
+                height={64}
+                className="rounded-full border mt-2 mx-auto" 
+              />
             )}
           </div>
           <div className="flex flex-col gap-2 text-right">
@@ -197,4 +204,4 @@ export default function SettingsForm({ userId }: SettingsFormProps) {
       )}
     </form>
   );
-} 
+}

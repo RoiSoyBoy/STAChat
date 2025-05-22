@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image'; // Import next/image
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
 import { ChatMessages } from './ChatMessages';
@@ -60,7 +61,13 @@ export function FloatingChat() {
               <div className="flex items-center gap-3">
                 {logoUrl && (
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-sm">
-                    <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain" />
+                    <Image 
+                      src={logoUrl} 
+                      alt="Logo" 
+                      width={32} // w-8 h-8 => 2rem * 16px/rem = 32px
+                      height={32}
+                      className="object-contain" // Removed w-8 h-8 as next/image handles dimensions
+                    />
                   </div>
                 )}
                 <h3 className="text-white font-semibold text-lg tracking-tight">התחל צ׳אט חדש</h3>
@@ -70,7 +77,7 @@ export function FloatingChat() {
                 className="text-white/90 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all duration-200"
                 aria-label="סגור צ׳אט"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -92,7 +99,7 @@ export function FloatingChat() {
         style={{ backgroundColor: chatColor }}
         aria-label="פתח צ׳אט"
       >
-        <RobotIcon className="w-6 h-6" />
+        <RobotIcon className="w-6 h-6" aria-hidden="true" />
       </motion.button>
     </div>
   );

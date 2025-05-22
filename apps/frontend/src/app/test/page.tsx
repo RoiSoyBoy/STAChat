@@ -1,7 +1,16 @@
 'use client';
 
 import React from 'react';
-import { FloatingChat } from '@/components/ChatWidget';
+import dynamic from 'next/dynamic';
+
+const DynamicFloatingChat = dynamic(() => 
+  import('@/components/ChatWidget').then(mod => mod.FloatingChat),
+  {
+    ssr: false, // Floating chat often relies on client-side state/window
+    // Basic fallback, can be styled or made more specific
+    loading: () => <div className="fixed bottom-4 right-4 w-16 h-16 rounded-full bg-gray-200 animate-pulse" /> 
+  }
+);
 
 export default function TestPage() {
   return (
@@ -96,7 +105,7 @@ export default function TestPage() {
       </footer>
 
       {/* Floating Chat: floating at bottom right with margin */}
-      <FloatingChat />
+      <DynamicFloatingChat />
     </div>
   );
-} 
+}

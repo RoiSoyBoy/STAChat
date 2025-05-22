@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import Image from 'next/image'; // Import next/image
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/lib/ThemeContext";
-import { postChatMessage } from '../../../apps/frontend/src/services/apiClient'; // Corrected relative path
+import { postChatMessage } from '@/services/apiClient'; // Use alias path
 
 const chatWindowVariants = {
   hidden: (origin: { x: number; y: number }) => ({
@@ -295,11 +296,17 @@ export function ChatWidget({
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Bot header */}
       <div className="flex items-center gap-3 px-4 py-2 border-b bg-white">
-        <img
+        <Image
           src={avatarUrl || '/bot-avatar-default.png'}
           alt="Bot Avatar"
-          className="h-10 w-10 rounded-full border object-cover"
-          onError={e => (e.currentTarget.src = '/bot-avatar-default.png')}
+          width={40} // h-10 w-10 => 2.5rem * 16px/rem = 40px
+          height={40}
+          className="rounded-full border object-cover"
+          onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+            // Type the event parameter
+            const target = e.target as HTMLImageElement;
+            target.src = '/bot-avatar-default.png';
+          }}
         />
         <span className="font-bold text-lg text-gray-800">{botName}</span>
       </div>

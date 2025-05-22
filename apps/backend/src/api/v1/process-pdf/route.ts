@@ -8,10 +8,12 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import { adminDb, getAuth } from '@/lib/firebaseAdmin'; // Combined and updated import
 import { headers } from 'next/headers';
 // import { Readable } from 'stream'; // Likely not needed with pdfjs-dist
-import { classifyTagsWithOpenAI } from '@/ingestion/shared/classifyTagsWithOpenAI';
-import { chunkText } from '@/ingestion/shared/chunkText';
-import { generateEmbeddings } from '@/ingestion/shared/embedding';
+import { classifyTagsWithOpenAI } from '@/lib/ingestion/classifyTagsWithOpenAI';
+import { chunkText } from '@/lib/chunkText'; // Assuming local backend version
+import { generateEmbeddings } from '@/lib/embedding';
 import { extractQAFromTextWithLLM, QA } from '@/lib/preprocess'; // For Q&A generation
+import logger, { sanitizeError } from '@/lib/logger';
+import { ApiError } from '@/middleware/errorHandler';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,9 +36,9 @@ async function extractTextFromPdfWithPdfjs(buffer: ArrayBuffer): Promise<string>
       // more cleanly from node_modules than an absolute path from require.resolve()
       // which seems to get mangled in the RSC/bundling context.
       lib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/legacy/build/pdf.worker.js';
-    } catch (e) {
+    } catch (e: any) {
       // This catch block might not be hit if the error is in pdf.js's internal require.
-      console.error("Error assigning workerSrc string for pdfjs-dist legacy: ", e);
+      logger.error({ err: e }, "Error assigning workerSrc string for pdfjs-dist legacy");
     }
   }
 
@@ -53,7 +55,7 @@ async function extractTextFromPdfWithPdfjs(buffer: ArrayBuffer): Promise<string>
 }
 
 export async function POST(req: NextRequest) {
-  console.log('[process-pdf PDFJS-DIST] POST handler entered');
+  logger.info('[process-pdf PDFJS-DIST] POST handler entered');
   try {
     let userId: string;
 
@@ -61,38 +63,38 @@ export async function POST(req: NextRequest) {
     // TODO: Remove this block and re-enable Firebase Auth before production!
     // This is for testing purposes only to bypass Firebase Auth in development.
     if (process.env.NODE_ENV === 'development') {
-      console.log('[process-pdf PDFJS-DIST] DEVELOPMENT MODE: Firebase Auth skipped.');
+      logger.info('[process-pdf PDFJS-DIST] DEVELOPMENT MODE: Firebase Auth skipped.');
       userId = 'dev-user-id'; // Using a mock user ID for development
-      console.log('[process-pdf PDFJS-DIST] Using mock User ID for development:', userId);
+      logger.info('[process-pdf PDFJS-DIST] Using mock User ID for development: %s', userId);
     } else {
       // Production Firebase Auth logic
-      console.log('[process-pdf PDFJS-DIST] Verifying Firebase Auth...');
+      logger.info('[process-pdf PDFJS-DIST] Verifying Firebase Auth...');
       const authHeader = req.headers.get('authorization');
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return NextResponse.json({ error: 'Missing or invalid auth token' }, { status: 401 });
+        logger.warn('[process-pdf PDFJS-DIST] Missing or invalid auth token.');
+        throw new ApiError(401, 'Missing or invalid authorization token.');
       }
       const idToken = authHeader.split(' ')[1];
       let decodedToken;
       try {
         decodedToken = await getAuth().verifyIdToken(idToken);
-      } catch (e) {
-        console.error('[process-pdf PDFJS-DIST] Firebase Auth token verification failed:', e);
-        return NextResponse.json({ error: 'Invalid or expired auth token' }, { status: 401 });
+      } catch (e: any) {
+        logger.error({ err: e }, '[process-pdf PDFJS-DIST] Firebase Auth token verification failed.');
+        throw new ApiError(401, `Invalid or expired auth token: ${e.message}`);
       }
       if (!decodedToken || !decodedToken.uid) { // Check if decodedToken or uid is null/undefined
-        console.error('[process-pdf PDFJS-DIST] Firebase Auth: UID not found in token.');
-        return NextResponse.json({ error: 'User not found after auth (UID missing)' }, { status: 401 });
+        logger.error('[process-pdf PDFJS-DIST] Firebase Auth: UID not found in token.');
+        throw new ApiError(401, 'User not found after auth (UID missing).');
       }
       userId = decodedToken.uid;
-      console.log('[process-pdf PDFJS-DIST] Firebase Auth verified. User ID:', userId);
+      logger.info('[process-pdf PDFJS-DIST] Firebase Auth verified. User ID: %s', userId);
     }
     // --- END DEVELOPMENT ONLY ---
 
     // Ensure userId is set, otherwise critical operations will fail.
-    // This check is more of a safeguard; the logic above should always set userId.
-    if (!userId) {
-        console.error('[process-pdf PDFJS-DIST] CRITICAL: userId not set after auth block.');
-        return NextResponse.json({ error: 'Internal server error: User ID not determined.' }, { status: 500 });
+    if (!userId) { // Safeguard
+        logger.error('[process-pdf PDFJS-DIST] CRITICAL: userId not set after auth block.');
+        throw new ApiError(500, 'Internal server error: User ID not determined.', false);
     }
 
     // --- Initialize Pinecone Client Once ---
@@ -100,70 +102,70 @@ export async function POST(req: NextRequest) {
     const pineconeIndexName = process.env.PINECONE_INDEX;
 
     if (!pineconeApiKey || !pineconeIndexName) {
-        console.error('[process-pdf PDFJS-DIST] Pinecone API Key or Index not configured.');
-        return NextResponse.json({ error: 'Server configuration error for Pinecone.' }, { status: 500 });
+        logger.error('[process-pdf PDFJS-DIST] CRITICAL: Pinecone API Key or Index not configured.');
+        throw new ApiError(500, 'CRITICAL: Server configuration error (Pinecone).', false);
     }
     const pinecone = new Pinecone({ apiKey: pineconeApiKey });
     const pineconeIndex = pinecone.index(pineconeIndexName).namespace(`user-${userId}`);
     // --- End Pinecone Client Initialization ---
 
-    console.log('[process-pdf PDFJS-DIST] Parsing form data using req.formData()...');
+    logger.info('[process-pdf PDFJS-DIST] Parsing form data using req.formData()...');
     const formData = await req.formData();
     const fileEntry = formData.get('file') as File | null;
 
     if (!fileEntry || typeof fileEntry === 'string') {
-      console.log('[process-pdf PDFJS-DIST] No file found in FormData.');
-      return NextResponse.json({ error: 'No PDF file uploaded' }, { status: 400 });
+      logger.warn('[process-pdf PDFJS-DIST] No file found in FormData.');
+      throw new ApiError(400, 'No PDF file uploaded.');
     }
     
     if (fileEntry.type !== 'application/pdf') {
-        console.log(`[process-pdf PDFJS-DIST] Invalid file type: ${fileEntry.type}.`);
-        return NextResponse.json({ error: `Invalid file type: ${fileEntry.type}. Only PDF files are allowed.` }, { status: 400 });
+        logger.warn(`[process-pdf PDFJS-DIST] Invalid file type: ${fileEntry.type}.`);
+        throw new ApiError(400, `Invalid file type: ${fileEntry.type}. Only PDF files are allowed.`);
     }
 
     const originalFilename = sanitizeFilename(fileEntry.name || `document-${Date.now()}.pdf`);
-    console.log('[process-pdf PDFJS-DIST] Form data parsed. Original filename:', originalFilename);
+    logger.info('[process-pdf PDFJS-DIST] Form data parsed. Original filename: %s', originalFilename);
 
-    console.log('[process-pdf PDFJS-DIST] Reading PDF ArrayBuffer from File object...');
+    logger.info('[process-pdf PDFJS-DIST] Reading PDF ArrayBuffer from File object...');
     const arrayBuffer = await fileEntry.arrayBuffer(); // Use ArrayBuffer directly for pdfjs-dist
 
     let text: string;
     try {
-      console.log('[process-pdf PDFJS-DIST] Parsing PDF content with pdfjs-dist...');
+      logger.info('[process-pdf PDFJS-DIST] Parsing PDF content with pdfjs-dist...');
       text = await extractTextFromPdfWithPdfjs(arrayBuffer);
     } catch (e: any) {
-      console.error('[process-pdf PDFJS-DIST] Error parsing PDF with pdfjs-dist:', e.message, e.stack);
-      return NextResponse.json({ error: `Failed to parse PDF with pdfjs-dist. ${e.message || ''}`.trim() }, { status: 400 });
+      logger.error({ err: e, filename: originalFilename }, '[process-pdf PDFJS-DIST] Error parsing PDF with pdfjs-dist.');
+      throw new ApiError(400, `Failed to parse PDF with pdfjs-dist. ${e.message || ''}`.trim());
     }
     
     if (!text) {
-      console.log('[process-pdf PDFJS-DIST] No extractable text found by pdfjs-dist.');
-      return NextResponse.json({ error: 'No extractable text found by pdfjs-dist.' }, { status: 400 });
+      logger.warn('[process-pdf PDFJS-DIST] No extractable text found by pdfjs-dist for %s.', originalFilename);
+      throw new ApiError(400, 'No extractable text found in PDF.');
     }
-    console.log('[process-pdf PDFJS-DIST] pdfjs-dist successful. Extracted text length:', text.length);
+    logger.info('[process-pdf PDFJS-DIST] pdfjs-dist successful. Extracted text length: %d for %s.', text.length, originalFilename);
 
     // --- Q&A Extraction and Storage (similar to fetch-url) ---
-    console.log(`[process-pdf PDFJS-DIST] Starting Q&A extraction for ${originalFilename}.`);
+    logger.info(`[process-pdf PDFJS-DIST] Starting Q&A extraction for ${originalFilename}.`);
     let qas: QA[] = [];
     if (text && text.trim().length > 0) { // Ensure there is text to process
         try {
             qas = await extractQAFromTextWithLLM(text); // Use the full PDF text
-            console.log(`[process-pdf PDFJS-DIST] Q&A extraction completed for ${originalFilename}. Found ${qas.length} Q&A pairs.`);
+            logger.info(`[process-pdf PDFJS-DIST] Q&A extraction completed for ${originalFilename}. Found ${qas.length} Q&A pairs.`);
         } catch (err: any) {
-            console.error(`[process-pdf PDFJS-DIST] Q&A extraction failed for ${originalFilename}:`, err.message, err.stack);
+            logger.error({ err, filename: originalFilename }, `[process-pdf PDFJS-DIST] Q&A extraction failed.`);
             // Log error, qas remains empty, proceed with main content ingestion
         }
 
         if (qas.length > 0) {
-            console.log(`[process-pdf PDFJS-DIST] Processing ${qas.length} Q&A pairs for ${originalFilename}.`);
+            logger.info(`[process-pdf PDFJS-DIST] Processing ${qas.length} Q&A pairs for ${originalFilename}.`);
             for (const qa of qas) {
                 let qaEmbedding = null;
                 try {
-                    console.log(`[process-pdf PDFJS-DIST] Generating embedding for Q&A question: "${qa.question.substring(0, 50)}..."`);
+                    logger.debug(`[process-pdf PDFJS-DIST] Generating embedding for Q&A question: "${qa.question.substring(0, 50)}..."`);
                     const embeddingArr = await generateEmbeddings([qa.question]);
                     qaEmbedding = embeddingArr[0];
                 } catch (embedErr: any) {
-                    console.error(`[process-pdf PDFJS-DIST] Embedding error for Q&A question "${qa.question.substring(0,50)}...":`, embedErr.message);
+                    logger.error({ err: embedErr, question: qa.question.substring(0,50) }, `[process-pdf PDFJS-DIST] Embedding error for Q&A question.`);
                 }
 
                 const firestoreTimestamp = Date.now();
@@ -179,9 +181,9 @@ export async function POST(req: NextRequest) {
                         userId: userId, // Include userId
                         sourceType: 'pdf-qa'
                     });
-                    console.log(`[process-pdf PDFJS-DIST] Q&A saved to 'training' collection for: "${qa.question.substring(0,50)}..."`);
+                    logger.debug(`[process-pdf PDFJS-DIST] Q&A saved to 'training' collection for: "${qa.question.substring(0,50)}..."`);
                 } catch (firestoreErr: any) {
-                    console.error(`[process-pdf PDFJS-DIST] Firestore error saving Q&A to 'training' for "${qa.question.substring(0,50)}...":`, firestoreErr.message);
+                    logger.error({ err: firestoreErr, question: qa.question.substring(0,50) }, `[process-pdf PDFJS-DIST] Firestore error saving Q&A to 'training'.`);
                 }
 
                 try {
@@ -197,9 +199,9 @@ export async function POST(req: NextRequest) {
                             timestamp: firestoreTimestamp,
                             sourceType: 'pdf-qa'
                         });
-                    console.log(`[process-pdf PDFJS-DIST] Q&A saved to 'trainingEmbeddings' for user ${userId} for: "${qa.question.substring(0,50)}..."`);
+                    logger.debug(`[process-pdf PDFJS-DIST] Q&A saved to 'trainingEmbeddings' for user ${userId} for: "${qa.question.substring(0,50)}..."`);
                 } catch (firestoreEmbedErr: any) {
-                    console.error(`[process-pdf PDFJS-DIST] Error saving Q&A to 'trainingEmbeddings' for user ${userId} for "${qa.question.substring(0,50)}...":`, firestoreEmbedErr.message);
+                    logger.error({ err: firestoreEmbedErr, userId, question: qa.question.substring(0,50) }, `[process-pdf PDFJS-DIST] Error saving Q&A to 'trainingEmbeddings'.`);
                 }
 
                 // Also upsert Q&A embedding to Pinecone for RAG
@@ -219,26 +221,26 @@ export async function POST(req: NextRequest) {
                             },
                         };
                         await pineconeIndex.upsert([qaVector]);
-                        console.log(`[process-pdf PDFJS-DIST] Q&A embedding upserted to Pinecone for: "${qa.question.substring(0,50)}..."`);
+                        logger.debug(`[process-pdf PDFJS-DIST] Q&A embedding upserted to Pinecone for: "${qa.question.substring(0,50)}..."`);
                     } catch (pineconeError: any) {
-                        console.error(`[process-pdf PDFJS-DIST] Error upserting Q&A embedding to Pinecone for "${qa.question.substring(0,50)}...":`, pineconeError.message);
+                        logger.error({ err: pineconeError, question: qa.question.substring(0,50) }, `[process-pdf PDFJS-DIST] Error upserting Q&A embedding to Pinecone.`);
                     }
                 }
             }
-            console.log(`[process-pdf PDFJS-DIST] Finished processing Q&A pairs for ${originalFilename}.`);
+            logger.info(`[process-pdf PDFJS-DIST] Finished processing Q&A pairs for ${originalFilename}.`);
         }
     } else {
-        console.log(`[process-pdf PDFJS-DIST] Skipping Q&A extraction as no text was extracted or text is empty for ${originalFilename}.`);
+        logger.info(`[process-pdf PDFJS-DIST] Skipping Q&A extraction as no text was extracted or text is empty for ${originalFilename}.`);
     }
     // --- End Q&A Extraction and Storage ---
 
     // --- Full pipeline restored (for chunking main content for Pinecone) ---
-    console.log('[process-pdf PDFJS-DIST] Chunking text...');
+    logger.info('[process-pdf PDFJS-DIST] Chunking text...');
     // Add an explicit check to ensure 'text' is a string, to satisfy TypeScript's control flow analysis.
     // This should ideally be guaranteed by the `if (!text)` check much earlier.
-    if (typeof text !== 'string') {
-        console.error('[process-pdf PDFJS-DIST] CRITICAL: text variable is not a string before chunking. This should not happen.');
-        return NextResponse.json({ error: 'Internal server error: text processing failed.' }, { status: 500 });
+    if (typeof text !== 'string') { // Should have been caught by earlier `if(!text)` that throws ApiError
+        logger.error('[process-pdf PDFJS-DIST] CRITICAL: text variable is not a string before chunking. This should not happen.');
+        throw new ApiError(500, 'Internal server error: text processing failed.', false);
     }
     // Assign to a new const with explicit type to further clarify for TypeScript
     const textForChunking: string = text;
@@ -247,12 +249,12 @@ export async function POST(req: NextRequest) {
     // Given previous checks, textForChunking should already be a valid string here.
     const chunks = chunkText((textForChunking || "") as string);
     if (!chunks || chunks.length === 0) {
-      console.log('[process-pdf PDFJS-DIST] No valid text chunks found after processing (or text was empty).');
-      return NextResponse.json({ error: 'No valid text chunks found after processing (or text was empty).' }, { status: 400 });
+      logger.warn('[process-pdf PDFJS-DIST] No valid text chunks found after processing (or text was empty) for %s.', originalFilename);
+      throw new ApiError(400, 'No valid text chunks found after processing (or text was empty).');
     }
-    console.log(`[process-pdf PDFJS-DIST] Text chunked into ${chunks.length} chunks.`);
+    logger.info(`[process-pdf PDFJS-DIST] Text chunked into ${chunks.length} chunks for %s.`, originalFilename);
 
-    console.log('[process-pdf PDFJS-DIST] Classifying tags with OpenAI...');
+    logger.info('[process-pdf PDFJS-DIST] Classifying tags with OpenAI for %s...', originalFilename);
     let tagsArr: string[][] = [];
     const maxChunksForTags = 10; 
     const tagChunksToProcess = chunks.slice(0, maxChunksForTags);
@@ -261,25 +263,25 @@ export async function POST(req: NextRequest) {
             const tags = await classifyTagsWithOpenAI(chunk);
             tagsArr.push(tags);
         } catch (tagError: any) {
-            console.error("[process-pdf PDFJS-DIST] Error classifying tags for chunk:", tagError.message);
+            logger.error({ err: tagError, filename: originalFilename }, "[process-pdf PDFJS-DIST] Error classifying tags for chunk.");
             tagsArr.push(['general', 'pdf-upload']);
         }
     }
     while (tagsArr.length < chunks.length) {
         tagsArr.push(['general', 'pdf-upload']);
     }
-    console.log('[process-pdf PDFJS-DIST] Tags classified.');
+    logger.info('[process-pdf PDFJS-DIST] Tags classified for %s.', originalFilename);
 
     // Pinecone client (pineconeIndex) is already initialized earlier in the function.
     
-    console.log('[process-pdf PDFJS-DIST] Generating embeddings for main text chunks and upserting to Pinecone...');
+    logger.info('[process-pdf PDFJS-DIST] Generating embeddings for main text chunks and upserting to Pinecone for %s...', originalFilename);
     const now = Date.now(); // Timestamp for main chunk vectors
     let embeddings: number[][];
     try {
       embeddings = await generateEmbeddings(chunks);
     } catch (e: any) {
-      console.error('[process-pdf PDFJS-DIST] Embedding API error:', e.message);
-      return NextResponse.json({ error: `Embedding generation failed. ${e.message || ''}`.trim() }, { status: 502 });
+      logger.error({ err: e, filename: originalFilename }, '[process-pdf PDFJS-DIST] Embedding API error.');
+      throw new ApiError(502, `Embedding generation failed. ${e.message || ''}`.trim());
     }
 
     const vectors = chunks.map((chunk, i) => ({
@@ -299,26 +301,26 @@ export async function POST(req: NextRequest) {
 
     try {
       await pineconeIndex.upsert(vectors);
-      console.log(`[process-pdf PDFJS-DIST] Successfully upserted ${vectors.length} vectors to Pinecone.`);
+      logger.info(`[process-pdf PDFJS-DIST] Successfully upserted ${vectors.length} vectors to Pinecone for %s.`, originalFilename);
     } catch (e: any) {
-      console.error('[process-pdf PDFJS-DIST] Pinecone upsert error:', e.message);
-      return NextResponse.json({ error: `Failed to save data to knowledge base. ${e.message || ''}`.trim() }, { status: 502 });
+      logger.error({ err: e, filename: originalFilename }, '[process-pdf PDFJS-DIST] Pinecone upsert error.');
+      throw new ApiError(502, `Failed to save data to knowledge base. ${e.message || ''}`.trim());
     }
 
-    console.log('[process-pdf PDFJS-DIST] Saving metadata to Firestore...');
+    logger.info('[process-pdf PDFJS-DIST] Saving metadata to Firestore for %s...', originalFilename);
     const batch = adminDb.batch();
     vectors.forEach((vec) => {
       const chunkRef = adminDb.collection('users').doc(userId).collection('uploads').doc(vec.id);
       batch.set(chunkRef, { ...vec.metadata, createdAt: now });
     });
     await batch.commit();
-    console.log('[process-pdf PDFJS-DIST] Metadata saved to Firestore.');
+    logger.info('[process-pdf PDFJS-DIST] Metadata saved to Firestore for %s.', originalFilename);
 
     await adminDb.collection('pdf_uploads').add({
         userId, originalFilename, chunkCount: chunks.length, uploadedAt: now,
         sourceType: 'pdf', size: fileEntry.size, contentType: fileEntry.type,
     });
-    console.log('[process-pdf PDFJS-DIST] Document-level metadata saved.');
+    logger.info('[process-pdf PDFJS-DIST] Document-level metadata saved for %s.', originalFilename);
 
     return NextResponse.json({
       success: true, message: 'PDF file processed and ingested successfully using pdfjs-dist.',
@@ -326,7 +328,15 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('[process-pdf PDFJS-DIST] Unhandled error in POST handler:', error.message, error.stack);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logger.error({ err: error, path: req.nextUrl.pathname, method: req.method }, '[process-pdf PDFJS-DIST] Unhandled error in POST handler');
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const sanitized = sanitizeError(error);
+    return NextResponse.json(
+      { 
+        status: statusCode >= 500 ? 'error' : 'fail',
+        ...sanitized
+      },
+      { status: statusCode }
+    );
   }
 }

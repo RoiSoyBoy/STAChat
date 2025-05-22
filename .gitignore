@@ -11,3 +11,5 @@ dist/
 service-account-key.json
 *-adminsdk-*.json
 chatbot-e17e5-firebase-adminsdk-fbsvc-696103b98d.json
+.eslintcache
+.prettiercache

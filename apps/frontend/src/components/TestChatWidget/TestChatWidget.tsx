@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image'; // Import next/image
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChatBubbleLeftRightIcon, 
@@ -176,8 +177,9 @@ export function TestChatWidget({ primaryColor, greeting, logoUrl }: TestChatWidg
           onClick={() => setIsOpen(true)}
           className="fixed bottom-4 right-4 z-50 flex h-[60px] w-[60px] items-center justify-center rounded-full text-white shadow-lg transition-all hover:shadow-xl"
           style={dynamicStyles.launcherButton}
+          aria-label="פתח צ'אט בדיקה"
         >
-          <CommandLineIcon className="h-7 w-7" />
+          <CommandLineIcon className="h-7 w-7" aria-hidden="true" />
         </motion.button>
       )}
 
@@ -195,9 +197,15 @@ export function TestChatWidget({ primaryColor, greeting, logoUrl }: TestChatWidg
           >
             <div className="flex items-center gap-2">
               {logoUrl ? (
-                <img src={logoUrl} alt="Logo" className="h-8 w-8 rounded bg-white object-contain" />
+                <Image 
+                  src={logoUrl} 
+                  alt="Logo" 
+                  width={32} 
+                  height={32} 
+                  className="rounded bg-white object-contain" 
+                />
               ) : (
-                <ChatBubbleLeftRightIcon className="h-6 w-6 text-white" />
+                <ChatBubbleLeftRightIcon className="h-6 w-6 text-white" aria-hidden="true" />
               )}
               <h2 className="font-semibold text-white">Test Chatbot</h2>
             </div>
@@ -205,16 +213,16 @@ export function TestChatWidget({ primaryColor, greeting, logoUrl }: TestChatWidg
               <button
                 onClick={handleClearChat}
                 className="rounded-full p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                title="נקה צ'אט"
+                aria-label="נקה צ'אט"
               >
-                <TrashIcon className="h-5 w-5" />
+                <TrashIcon className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
                 className="rounded-full p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                title="סגור"
+                aria-label="סגור צ'אט בדיקה"
               >
-                <MinusIcon className="h-5 w-5" />
+                <MinusIcon className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -278,6 +286,7 @@ export function TestChatWidget({ primaryColor, greeting, logoUrl }: TestChatWidg
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="הקלד הודעה..."
+                aria-label="הקלד הודעה"
                 className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-right focus:border-blue-500 focus:outline-none"
                 dir="rtl"
               />
@@ -288,8 +297,9 @@ export function TestChatWidget({ primaryColor, greeting, logoUrl }: TestChatWidg
                 onMouseLeave={() => setIsHovered(false)}
                 className="rounded-lg px-4 py-2 text-white transition-colors disabled:cursor-not-allowed"
                 style={dynamicStyles.sendButton}
+                aria-label="שלח הודעה"
               >
-                <PaperAirplaneIcon className="h-5 w-5" />
+                <PaperAirplaneIcon className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
           </form>
@@ -297,4 +307,4 @@ export function TestChatWidget({ primaryColor, greeting, logoUrl }: TestChatWidg
       )}
     </>
   );
-} 
+}
