@@ -10,7 +10,8 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import { classifyTagsWithOpenAI } from '@/lib/ingestion/classifyTagsWithOpenAI';
 import { chunkText } from 'shared'; // Corrected import path
 import { generateEmbeddings } from '@/lib/embedding';
-import { extractQAFromTextWithLLM, QA } from '@/lib/preprocess';
+import { extractQAFromTextWithLLM } from '../../../../../../packages/preprocessing/preprocess';
+import { QA } from '../../../../../../packages/preprocessing/types';
 
 // Simulating NextRequest and NextResponse for the existing POST function
 interface SimulatedNextRequest {

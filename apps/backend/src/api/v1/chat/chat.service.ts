@@ -272,8 +272,12 @@ ${isRetryAttempt && originalQueryToRetry ? `
         max_tokens: isRetryAttempt ? 700 : 500,    // Allow more tokens for a more detailed retry
       });
 
-      const reply = openAIResponse.choices[0]?.message?.content?.trim() || "מצטער, לא הצלחתי לעבד את בקשתך כרגע.";
-      console.log("Reply from OpenAI:", reply.substring(0,100) + "...");
+      let reply = openAIResponse.choices[0]?.message?.content?.trim() || "מצטער, לא הצלחתי לעבד את בקשתך כרגע.";
+      console.log("Reply from OpenAI (before cleaning):", reply.substring(0,100) + "...");
+
+      // Remove bracketed source numbers like [1], [2], etc.
+      reply = reply.replace(/ \[\d+\]/g, '').trim();
+      console.log("Reply from OpenAI (after cleaning):", reply.substring(0,100) + "...");
 
       return {
         response: reply,

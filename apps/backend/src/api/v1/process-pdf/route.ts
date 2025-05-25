@@ -8,7 +8,8 @@ import { adminDb, getAuth } from '../../../lib/firebaseAdmin'; // Adjusted path
 import { classifyTagsWithOpenAI } from '../../../lib/ingestion/classifyTagsWithOpenAI'; // Adjusted path
 import { chunkText } from 'shared'; // Use chunkText from shared package
 import { generateEmbeddings } from '../../../lib/embedding'; // Adjusted path
-import { extractQAFromTextWithLLM, QA } from '../../../lib/preprocess'; // Adjusted path
+import { extractQAFromTextWithLLM } from '../../../../../../packages/preprocessing/preprocess'; // Explicit relative path
+import { QA } from '../../../../../../packages/preprocessing/types'; // Import QA from types.ts
 import logger, { sanitizeError } from '../../../lib/logger'; // Adjusted path
 import { ApiError } from '../../../middleware/errorHandler'; // Adjusted path
 import { AuthenticatedRequest, verifyTokenMiddleware } from '../../../middleware/auth.middleware'; // For JWT auth
