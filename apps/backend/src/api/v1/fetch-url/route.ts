@@ -54,7 +54,7 @@ async function handleFetchUrlLogic(simulatedReq: SimulatedNextRequest) {
     // 2. Otherwise, require and verify the Firebase ID token from the Authorization header.
     if (process.env.BYPASS_FIREBASE_AUTH === 'true' && process.env.NODE_ENV === 'development') {
       logger.info('[API /api/fetch-url (Express)] DEVELOPMENT MODE: Firebase Auth skipped via BYPASS_FIREBASE_AUTH ENV.');
-      userId = process.env.DEV_USER_ID || 'dev-user-id-fetch-url';
+      userId = process.env.DEV_USER_ID || 'default-dev-user'; // Standardized default dev user ID
       logger.info('[API /api/fetch-url (Express)] Using mock User ID for development: %s', userId);
     } else {
       // Standard token-based authentication
@@ -265,13 +265,17 @@ async function handleFetchUrlLogic(simulatedReq: SimulatedNextRequest) {
         logger.info({ url }, `[API /api/fetch-url (Express)] Finished processing Q&A pairs.`);
 
         if (qaPineconeVectors.length > 0) {
-          logger.info({ url, count: qaPineconeVectors.length }, `[API /api/fetch-url (Express)] Attempting to upsert Q&A vectors to Pinecone.`);
+          logger.info({ url, count: qaPineconeVectors.length }, `[API /api/fetch-url (Express)] Attempting to upsert Q&A vectors to Pinecone namespace: user-${userId}`);
           try {
             await index.upsert(qaPineconeVectors);
-            logger.info({ url, count: qaPineconeVectors.length }, `[API /api/fetch-url (Express)] Successfully upserted Q&A vectors to Pinecone.`);
+            logger.info({ url, count: qaPineconeVectors.length }, `[API /api/fetch-url (Express)] Successfully reported upsert for Q&A vectors to Pinecone namespace: user-${userId}.`);
+            
+            // Log namespace stats after upsert
+            const stats = await index.describeIndexStats();
+            logger.info({ namespace: `user-${userId}`, stats: stats.namespaces?.[`user-${userId}`] }, `[API /api/fetch-url (Express)] Pinecone namespace stats after Q&A upsert.`);
             logEvent.qaPineconeUpsertCount = qaPineconeVectors.length;
           } catch (e: any) {
-            logger.error({ err: e, url }, `[API /api/fetch-url (Express)] Pinecone upsert failed for Q&A vectors.`);
+            logger.error({ err: e, url, namespace: `user-${userId}` }, `[API /api/fetch-url (Express)] Pinecone upsert failed for Q&A vectors.`);
             logEvent.qaPineconeUpsertError = `pinecone Q&A error: ${e.message || e}`;
           }
         } else {
@@ -329,12 +333,16 @@ async function handleFetchUrlLogic(simulatedReq: SimulatedNextRequest) {
           metadata: { userId, url, chunkIndex: i, sourceType: 'web', text: chunk, tags: tagsArr[i] },
         }));
 
-        logger.info({ url, vectorCount: vectors.length }, `[API /api/fetch-url (Express)] Attempting to upsert vectors to Pinecone.`);
+        logger.info({ url, vectorCount: vectors.length }, `[API /api/fetch-url (Express)] Attempting to upsert main content vectors to Pinecone namespace: user-${userId}.`);
         try {
           await index.upsert(vectors);
-          logger.info({ url, vectorCount: vectors.length }, `[API /api/fetch-url (Express)] Successfully upserted vectors to Pinecone.`);
+          logger.info({ url, vectorCount: vectors.length }, `[API /api/fetch-url (Express)] Successfully reported upsert for main content vectors to Pinecone namespace: user-${userId}.`);
+          
+          // Log namespace stats after upsert
+          const stats = await index.describeIndexStats();
+          logger.info({ namespace: `user-${userId}`, stats: stats.namespaces?.[`user-${userId}`] }, `[API /api/fetch-url (Express)] Pinecone namespace stats after main content upsert.`);
         } catch (e: any) { 
-          logger.error({ err: e, url }, `[API /api/fetch-url (Express)] Pinecone upsert failed.`);
+          logger.error({ err: e, url, namespace: `user-${userId}` }, `[API /api/fetch-url (Express)] Pinecone upsert failed for main content vectors.`);
           results.push({ url, status: 'error', chunkCount: 0, error: `pinecone error: ${e.message || e}` });
           logEvent.status = 'error';
           logEvent.error = `pinecone error: ${e.message || e}`; 

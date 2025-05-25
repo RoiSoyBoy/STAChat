@@ -7,16 +7,34 @@ export interface TenantAwareRequest extends AuthenticatedRequest {
 }
 
 export const tenantContextMiddleware = (req: TenantAwareRequest, res: Response, next: NextFunction) => {
+  // Development bypass for tenantId
+  if (process.env.NODE_ENV === 'development' && process.env.BYPASS_FIREBASE_AUTH === 'true') {
+    const devTenantId = process.env.DEV_TENANT_ID || 'default-dev-tenant';
+    req.tenantId = devTenantId;
+    console.log(`[tenantContextMiddleware] DEV MODE: Bypassing tenant ID extraction. Using tenantId: ${devTenantId}`);
+    
+    // Also ensure req.user.tenantId is populated if other parts expect it from there,
+    // though TenantAwareRequest makes req.tenantId primary.
+    if (req.user) {
+      // @ts-ignore
+      req.user.tenantId = devTenantId;
+    } else {
+      // @ts-ignore
+      req.user = { tenantId: devTenantId };
+    }
+    return next();
+  }
+
+  // Standard logic: try to get tenantId from the user object (populated by auth middleware from token claims)
   if (req.user && req.user.tenantId) {
     req.tenantId = req.user.tenantId; // Make tenantId directly accessible on the request
     next();
   } else {
-    // This path implies that the route requires tenant context, but it wasn't found.
-    // The JWT might be valid but not contain tenantId, or the user object might be missing.
-    // For routes that strictly require a tenantId, this check is crucial.
-    // For routes that might operate without a tenantId (e.g. global admin routes), 
-    // this middleware might be applied selectively or made more lenient.
-    console.warn('Tenant ID missing in token for a tenant-aware route.');
+    console.warn('[tenantContextMiddleware] Tenant ID missing in user token/claims for a tenant-aware route.');
+    // It's important that the auth middleware (firebaseAuthMiddleware or verifyTokenMiddleware)
+    // populates req.user.tenantId if it's expected from the token.
+    // If firebaseAuthMiddleware is used, it currently does not add tenantId to req.user from Firebase token claims.
+    // This might need to be added there if Firebase tokens contain a custom claim for tenantId.
     return res.status(403).json({ error: 'Forbidden: Tenant information missing or user not associated with a tenant.' });
   }
 };

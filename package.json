@@ -43,6 +43,7 @@
   ],
   "dependencies": {
     "lts": "^2.0.0",
+    "pdfjs-dist": "^5.2.133",
     "rimraf": "^6.0.1"
   }
 }

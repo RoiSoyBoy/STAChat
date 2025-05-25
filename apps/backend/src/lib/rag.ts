@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { findMostSimilarChunks } from './vectorSearch';
-import { WebEmbeddingDoc } from './types'; // Added import
+import { WebEmbeddingDoc } from 'shared/types'; // Added import
 // Removed: import axios from 'axios';
 // Added import for firecrawl tools
 import { 

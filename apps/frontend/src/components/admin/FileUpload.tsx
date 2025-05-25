@@ -9,11 +9,11 @@ import {
 } from "@heroicons/react/24/outline";
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/firebase"; // Removed app, firebaseAuthService, onAuthStateChanged, User
 import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
 
 interface FileUploadProps {
-  userId: string;
+  userId: string; // This userId should correspond to the backend's DEV_USER_ID if auth is bypassed
 }
 
 export function FileUpload({ userId }: FileUploadProps) {
@@ -23,22 +23,32 @@ export function FileUpload({ userId }: FileUploadProps) {
     Array<{ id: string; filename: string; url: string }>
   >([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
+  // Removed currentAuthUser and authLoading states
 
   useEffect(() => {
-    const fetchDocs = async () => {
-      setLoadingDocs(true);
-      try {
-        const snap = await getDocs(collection(db, `users/${userId}/uploads`));
-        setUploadedDocs(
-          snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as any)
-        );
-      } catch (e) {
-        toast.error("שגיאה בטעינת מסמכים");
-      } finally {
-        setLoadingDocs(false);
-      }
-    };
-    fetchDocs();
+    // Fetch documents if userId is provided
+    if (userId) {
+      const fetchDocs = async () => {
+        setLoadingDocs(true);
+        try {
+          const snap = await getDocs(collection(db, `users/${userId}/uploads`));
+          setUploadedDocs(
+            snap.docs.map((docData) => ({ id: docData.id, ...docData.data() }) as any)
+          );
+        } catch (e) {
+          console.error("Error fetching documents:", e);
+          toast.error("שגיאה בטעינת מסמכים");
+        } finally {
+          setLoadingDocs(false);
+        }
+      };
+      fetchDocs();
+    } else {
+      // If no userId, perhaps clear docs or show a message
+      setUploadedDocs([]);
+      setLoadingDocs(false);
+      console.warn("FileUpload: No userId prop provided, cannot fetch documents.");
+    }
   }, [userId]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -69,7 +79,7 @@ export function FileUpload({ userId }: FileUploadProps) {
 
         let endpoint = "";
         if (file.type === "application/pdf") {
-          endpoint = "/api/process-pdf";
+          endpoint = "/api/v1/process-pdf"; // CORRECTED ENDPOINT
         } else if (
           file.type ===
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || // DOCX
@@ -83,23 +93,77 @@ export function FileUpload({ userId }: FileUploadProps) {
           return;
         }
 
+        // Auth logic removed as per "no auth system yet"
+        // The backend must be set to BYPASS_FIREBASE_AUTH=true and use DEV_USER_ID
+
+        // Ensure userId prop is available if backend operations depend on it (even in bypass mode)
+        if (!userId) {
+          toast.error("מזהה משתמש חסר. לא ניתן להעלות קובץ.");
+          console.error("FileUpload: userId prop is missing, cannot proceed with upload.");
+          setUploading(false);
+          return;
+        }
+        
+        const headers: HeadersInit = {}; // No Authorization header
+
         const res = await fetch(endpoint, {
           method: "POST",
           body: formData,
+          headers: headers, // Sent without Authorization
         });
-        const data = await res.json();
-        if (!res.ok || data.error) {
-          toast.error(data.error || "שגיאה בהעלאת הקובץ");
+
+        if (!res.ok) {
+          let errorText = `שגיאת שרת: ${res.status}`;
+          try {
+            const serverErrorData = await res.json(); // Try to parse error response as JSON
+            errorText = serverErrorData.error || serverErrorData.message || errorText;
+          } catch (e) {
+            // If error response is not JSON, try to get text
+            try {
+              errorText = await res.text() || errorText;
+            } catch (textErr) {
+              // Keep default errorText
+            }
+          }
+          console.error("Upload failed, server response not OK:", res.status, errorText);
+          toast.error(errorText);
         } else {
-          toast.success("הקובץ הועלה ועובד בהצלחה");
-          // Refresh document list
-          const snap = await getDocs(collection(db, `users/${userId}/uploads`));
-          setUploadedDocs(
-            snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as any)
-          );
+          // Response is OK (2xx status)
+          let data;
+          try {
+            const responseText = await res.text(); // Read as text first
+            if (!responseText) { // Handle empty response body for 200/204
+                console.log("Upload successful with empty response body.");
+                toast.success("הקובץ הועלה בהצלחה (אין תוכן בתגובה).");
+                 // Refresh document list since backend likely succeeded
+                const snap = await getDocs(collection(db, `users/${userId}/uploads`));
+                setUploadedDocs(
+                  snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as any)
+                );
+                // Potentially return or skip further data processing if response is empty
+            } else {
+                data = JSON.parse(responseText); // Then parse
+                if (data.error) {
+                    console.error("Upload responded OK, but application error in JSON:", data.error);
+                    toast.error(data.error || "שגיאה מהשרת בעיבוד הקובץ.");
+                } else {
+                    toast.success(data.message || "הקובץ הועלה ועובד בהצלחה");
+                    // Refresh document list
+                    const snap = await getDocs(collection(db, `users/${userId}/uploads`));
+                    setUploadedDocs(
+                        snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as any)
+                    );
+                }
+            }
+          } catch (jsonError) {
+            console.error("Upload succeeded (status OK) but failed to parse/process JSON response:", jsonError);
+            toast.error("שגיאה בעיבוד התגובה מהשרת.");
+            // Consider if a refresh is still appropriate if backend likely succeeded but response was malformed
+          }
         }
-      } catch (e) {
-        toast.error("שגיאה בהעלאת הקובץ");
+      } catch (e: any) {
+        console.error("Generic upload error catch block:", e);
+        toast.error(e.message || "שגיאה כללית בהעלאת הקובץ.");
       } finally {
         setUploading(false);
       }
