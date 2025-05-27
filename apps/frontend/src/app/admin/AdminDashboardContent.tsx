@@ -58,7 +58,7 @@ export default function AdminDashboardContent({
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/settings");
+        const res = await fetch("/api/v1/settings"); // Added /v1
         if (!res.ok) {
           throw new Error(
             `Failed to fetch settings: ${res.status} ${res.statusText}`
@@ -109,7 +109,7 @@ export default function AdminDashboardContent({
       const formData = new FormData();
       formData.append("file", file);
       try {
-        const res = await fetch("/api/upload", {
+        const res = await fetch("/api/v1/upload", { // Added /v1
           method: "POST",
           body: formData,
         });
@@ -182,7 +182,7 @@ export default function AdminDashboardContent({
     }
     setIsIngestingGoogleSheet(true);
     try {
-      const response = await fetch("/api/ingest-google-sheet", {
+      const response = await fetch("/api/v1/ingest-google-sheet", { // Added /v1
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheetUrl: googleSheetUrl }),
@@ -190,8 +190,8 @@ export default function AdminDashboardContent({
       const resultData = await response.json();
       if (!response.ok) {
         throw new Error(
-          resultData.error ||
-            `Failed to ingest Google Sheet: ${response.statusText}`
+          resultData.error || // Use error from JSON if available
+            `Failed to ingest Google Sheet: ${response.status} ${response.statusText}` // Include status
         );
       }
       toast.success(
@@ -229,21 +229,23 @@ export default function AdminDashboardContent({
       try {
         const formData = new FormData();
         formData.append("file", file);
-        const response = await fetch("/api/upload", {
+        const response = await fetch("/api/v1/upload", { // Added /v1
           // This API endpoint is generic
           method: "POST",
           body: formData,
         });
-        if (!response.ok) throw new Error("Upload failed");
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({})); // Try to parse error JSON
+            throw new Error(errorData.error || `Upload failed: ${response.status} ${response.statusText}`);
+        }
         const data = await response.json();
         // Assuming the generic /api/upload returns a URL for the uploaded file
-        if (data.url) {
-          // Or data.success && data.url
+        if (data.success && data.url) { // Check for success flag
           setLogoUrl(data.url); // Update logoUrl state
           updateSettings({ logoUrl: data.url }); // Persist
           toast.success("הלוגו הועלה בהצלחה");
         } else {
-          toast.error(data.error || "שגיאה בהעלאת הלוגו");
+          toast.error(data.error || "שגיאה בהעלאת הלוגו (שרת)"); // Clarify server error
         }
       } catch (error) {
         toast.error("שגיאה בהעלאת הקובץ");
@@ -290,7 +292,7 @@ export default function AdminDashboardContent({
   const handleSave = async () => {
     setSaveStatus("idle");
     try {
-      const res = await fetch("/api/settings", {
+      const res = await fetch("/api/v1/settings", { // Added /v1
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ primaryColor: color, greeting, logoUrl }),
@@ -300,12 +302,13 @@ export default function AdminDashboardContent({
         setSaveStatus("success");
         toast.success("ההגדרות נשמרו בהצלחה");
       } else {
+        const errorData = await res.json().catch(() => ({})); // Try to parse error JSON
         setSaveStatus("error");
-        toast.error("שגיאה בשמירת ההגדרות");
+        toast.error(errorData.error || "שגיאה בשמירת ההגדרות");
       }
     } catch (err) {
       setSaveStatus("error");
-      toast.error("שגיאה בשמירת ההגדרות");
+      toast.error(`שגיאה בשמירת ההגדרות: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { google, sheets_v4 } from 'googleapis'; // Added sheets_v4 for types
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { classifyTagsWithOpenAI } from '@/ingestion/shared/classifyTagsWithOpenAI';
-import { chunkText } from '@/ingestion/shared/chunkText';
-import { generateEmbeddings } from '@/ingestion/shared/embedding';
-import { getUserIdFromRequest, firebaseAuthMiddleware } from '@/lib/firebaseAuthMiddleware'; // Assuming auth is needed
+import { classifyTagsWithOpenAI } from '@/lib/ingestion/classifyTagsWithOpenAI';
+import { chunkText } from 'shared'; // Corrected path: import from shared package
+import { generateEmbeddings } from '@/lib/embedding'; // Path seems correct, file exists
+// getUserIdFromRequest and firebaseAuthMiddleware are Express-style, cannot be used directly here.
+// We will inline the auth logic for NextRequest.
+import { getAuth } from '@/lib/firebaseAdmin'; // Ensure getAuth is available for token verification
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,27 +17,45 @@ function extractSheetIdFromUrl(url: string): string | null {
   const match = url.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : null;
 }
-
+ 
 export async function POST(request: NextRequest) {
   let userId: string | null;
 
   // --- DEVELOPMENT ONLY: Firebase Auth Bypass ---
   if (process.env.NODE_ENV === 'development') {
     console.log('[API /ingest-google-sheet] DEVELOPMENT MODE: Firebase Auth skipped.');
-    userId = 'dev-user-id'; 
-    (request as any).userId = userId;
+    // In development, BYPASS_FIREBASE_AUTH might also be checked by other parts,
+    // but for this route, NODE_ENV=development is enough to set a dev-user-id.
+    userId = process.env.DEV_USER_ID || 'dev-user-id'; // Use DEV_USER_ID from env if set
+    (request as any).userId = userId; // For potential downstream use if request object is passed around (though less common in Next.js API routes)
   } else {
-    const authResult = await firebaseAuthMiddleware(request);
-    if (authResult) return authResult;
-    userId = getUserIdFromRequest(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'User authentication failed' }, { status: 401 });
+    // Production Firebase Auth logic for NextRequest
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Missing or invalid auth token' }, { status: 401 });
+    }
+    const idToken = authHeader.split(' ')[1];
+    try {
+      const decodedToken = await getAuth().verifyIdToken(idToken);
+      if (!decodedToken || !decodedToken.uid) {
+        return NextResponse.json({ error: 'User not found in token' }, { status: 401 });
+      }
+      userId = decodedToken.uid;
+      // Optionally, attach to request if any downstream utility expects it, though direct use of userId is cleaner.
+      // (request as any).userId = userId; 
+      // (request as any).user = { id: userId, uid: userId, email: decodedToken.email };
+    } catch (e) {
+      console.error('[API /ingest-google-sheet] Firebase Auth Error:', e);
+      return NextResponse.json({ error: 'Invalid or expired auth token' }, { status: 401 });
     }
   }
-  // --- END DEVELOPMENT ONLY ---
+  // --- END Firebase Auth Logic ---
 
   if (!userId) {
-    return NextResponse.json({ error: 'Internal server error: User ID not determined.' }, { status: 500 });
+    // This case should ideally be caught by the logic above, returning 401.
+    // If it's reached, it's an unexpected state.
+    console.error('[API /ingest-google-sheet] Critical: User ID not determined after auth block.');
+    return NextResponse.json({ error: 'User authentication failed or user ID not determined.' }, { status: 500 });
   }
 
   try {
@@ -58,7 +78,7 @@ export async function POST(request: NextRequest) {
     const auth = new google.auth.GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
       // If using a specific service account key file:
-      // keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS, 
+      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
       // Or if key components are in env vars:
       // credentials: {
       //   client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
@@ -79,7 +99,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to access Google Sheet metadata.', details: e.message }, { status: 500 });
     }
     
-    const sheetTitles = spreadsheetMeta.data.sheets?.map(s => s.properties?.title).filter(Boolean) as string[] || [];
+    const sheetTitles = spreadsheetMeta.data.sheets?.map((s: sheets_v4.Schema$Sheet) => s.properties?.title).filter(Boolean) as string[] || [];
     if (sheetTitles.length === 0) {
       return NextResponse.json({ error: 'No sheets found in the Google Spreadsheet.' }, { status: 400 });
     }
@@ -101,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     let extractedText = '';
     const valueRanges = allSheetData.data.valueRanges || [];
-    valueRanges.forEach(valueRange => {
+    valueRanges.forEach((valueRange: sheets_v4.Schema$ValueRange) => {
       const sheetName = valueRange.range?.split('!')[0] || 'UnknownSheet';
       extractedText += `Sheet: ${sheetName}\n`;
       const rows = valueRange.values as any[][] | null;
@@ -124,32 +144,56 @@ export async function POST(request: NextRequest) {
     const originalFilename = spreadsheetMeta.data.properties?.title || `google-sheet-${sheetId}`;
     const sourceType = 'googlesheet';
 
-    // --- Start Ingestion Pipeline: Modified for Row-by-Row Processing ---
-    const rowTexts: string[] = [];
-    valueRanges.forEach(valueRange => {
+    // --- Start Ingestion Pipeline: Modified for Row-by-Row Processing with Headers ---
+    const rowObjectsForProcessing: Array<{ sheetName: string, sheetIndex: number, rowIndexInSheet: number, data: string }> = [];
+    
+    valueRanges.forEach((valueRange: sheets_v4.Schema$ValueRange, sheetIndex: number) => { // Added sheetIndex
+      const sheetName = valueRange.range?.split('!')[0] || `UnknownSheet_${sheetIndex}`; // Use index if name is problematic
       const rows = valueRange.values as any[][] | null;
-      if (rows) {
-        rows.forEach(rowArray => {
-          const rowContent = rowArray.map(cell => String(cell).trim()).join(' ').trim();
-          if (rowContent) { // Only add non-empty rows
-            rowTexts.push(rowContent);
+      if (rows && rows.length > 0) {
+        const headers = rows[0].map(header => String(header).trim()); // First row as headers
+        
+        rows.slice(1).forEach((rowArray, rowIndex) => { // Process data rows (skip header row)
+          let rowContent = "";
+          if (rowArray.length > 0) { // Ensure row is not empty
+            rowContent = rowArray
+              .map((cell, cellIndex) => {
+                const header = headers[cellIndex] || `column_${cellIndex + 1}`;
+                return `${header}: ${String(cell).trim()}`;
+              })
+              .join(', '); // Join field-value pairs
+          }
+
+          if (rowContent.trim()) { // Only add non-empty processed rows
+            rowObjectsForProcessing.push({
+              sheetName,
+              sheetIndex, // Store sheetIndex
+              rowIndexInSheet: rowIndex + 1, // 0-indexed data row, +1 for 1-indexed sheet row (after header)
+              data: rowContent.trim()
+            });
           }
         });
       }
     });
 
-    if (rowTexts.length === 0) {
-      console.log(`[API /ingest-google-sheet] No text content found in rows for "${originalFilename}".`);
-      return NextResponse.json({ error: 'No text content found in the Google Sheet rows.' }, { status: 400 });
+    if (rowObjectsForProcessing.length === 0) {
+      console.log(`[API /ingest-google-sheet] No processable row content found in "${originalFilename}".`);
+      return NextResponse.json({ error: 'No processable text content found in the Google Sheet rows.' }, { status: 400 });
     }
-    console.log(`[API /ingest-google-sheet] Extracted ${rowTexts.length} non-empty rows from "${originalFilename}".`);
+    console.log(`[API /ingest-google-sheet] Extracted ${rowObjectsForProcessing.length} processable rows from "${originalFilename}".`);
 
-    // Process each row: chunk it, and prepare for embedding
-    const allChunks: Array<{ text: string, rowIndex: number, originalRowText: string }> = [];
-    rowTexts.forEach((rowText, rowIndex) => {
-      const rowSpecificChunks = chunkText(rowText); // Uses default chunkSize & overlap
-      rowSpecificChunks.forEach(chunk => {
-        allChunks.push({ text: chunk, rowIndex, originalRowText: rowText });
+    // Process each processed row object: chunk its 'data' field
+    const allChunks: Array<{ text: string, sheetName: string, sheetIndex: number, rowIndexInSheet: number, originalRowData: string }> = [];
+    rowObjectsForProcessing.forEach((rowObject) => {
+      const rowSpecificChunks = chunkText(rowObject.data); // Chunk the "Header: Value, Header: Value" string
+      rowSpecificChunks.forEach((chunk: string) => {
+        allChunks.push({ 
+          text: chunk, 
+          sheetName: rowObject.sheetName, // Keep for metadata
+          sheetIndex: rowObject.sheetIndex, // Pass sheetIndex for ID generation
+          rowIndexInSheet: rowObject.rowIndexInSheet,
+          originalRowData: rowObject.data // Store the structured "Header: Value..." string
+        });
       });
     });
 
@@ -157,21 +201,25 @@ export async function POST(request: NextRequest) {
       console.error(`[API /ingest-google-sheet] No chunks produced after processing rows for "${originalFilename}".`);
       return NextResponse.json({ error: 'No valid text chunks found after processing rows.' }, { status: 400 });
     }
-    console.log(`[API /ingest-google-sheet] Created ${allChunks.length} total chunks from ${rowTexts.length} rows for "${originalFilename}".`);
+    console.log(`[API /ingest-google-sheet] Created ${allChunks.length} total chunks from ${rowObjectsForProcessing.length} rows for "${originalFilename}".`);
 
-    // Tagging: Generate one set of tags based on a sample of rows
+    // Tagging: Generate one set of tags based on a sample of processed row data
     let sheetLevelTags: string[] = [sourceType, originalFilename, 'spreadsheet', 'tabular data']; // Default tags
     try {
-      const representativeTextForTags = rowTexts.slice(0, Math.min(rowTexts.length, 10)).join('\n'); // Sample of first 10 rows
+      const representativeTextForTags = rowObjectsForProcessing
+        .slice(0, Math.min(rowObjectsForProcessing.length, 5)) // Sample of first 5 processed rows
+        .map(r => r.data)
+        .join('\n\n'); 
       if (representativeTextForTags) {
-        // Chunk this representative text for tagging to avoid overly long input to OpenAI
-        const representativeChunksForTags = chunkText(representativeTextForTags, 250, 0); // No overlap
+        const representativeChunksForTags = chunkText(representativeTextForTags, 300, 0); // Chunk for tagging, slightly larger
         if (representativeChunksForTags.length > 0) {
             console.log(`[API /ingest-google-sheet] Classifying tags for sheet sample of "${originalFilename}".`);
-            sheetLevelTags = await classifyTagsWithOpenAI(representativeChunksForTags[0]); // Classify first representative chunk
-             // Add default tags back if not present, or merge
+            sheetLevelTags = await classifyTagsWithOpenAI(representativeChunksForTags[0]);
             if (!sheetLevelTags.includes(sourceType)) sheetLevelTags.push(sourceType);
-            if (!sheetLevelTags.includes(originalFilename)) sheetLevelTags.push(originalFilename);
+            // No need to push originalFilename if it's already part of the tags from OpenAI or default
+            if (!sheetLevelTags.some(tag => tag.toLowerCase() === originalFilename.toLowerCase())) {
+                 sheetLevelTags.push(originalFilename);
+            }
         }
       }
     } catch (tagError: any) {
@@ -206,21 +254,23 @@ export async function POST(request: NextRequest) {
     }
 
     const vectors = allChunks.map((chunkData, i) => ({
-      id: `${userId}-${sourceType}-${sheetId}-${now}-${chunkData.rowIndex}-${i}`, // More specific ID
+      id: `${userId}-${sourceType}-${sheetId}-s${chunkData.sheetIndex}-r${chunkData.rowIndexInSheet}-c${i}`, // ASCII ID using sheetIndex
       values: embeddings[i],
       metadata: {
         userId,
-        documentName: originalFilename, // Sheet title
+        documentName: originalFilename, 
+        sheetName: chunkData.sheetName, // Keep original sheetName for metadata
+        sheetIndex: chunkData.sheetIndex, // Store sheetIndex in metadata
         originalFilename, 
         sheetUrl: sheetUrl, 
         sheetId: sheetId,
-        rowIndex: chunkData.rowIndex, // Store original row index
-        // originalRowText: chunkData.originalRowText, // Optionally store full original row text if needed
-        chunkIndex: i, // Index within allChunks for this sheet
+        rowIndexInSheet: chunkData.rowIndexInSheet, 
+        // originalRowData: chunkData.originalRowData, 
+        chunkIndex: i, 
         sourceType,
-        text: chunkData.text, // The actual chunk content
-        tags: sheetLevelTags, // Apply sheet-level tags to all chunks
-        contentType: 'text/googlesheet-row', // More specific content type
+        text: chunkData.text, 
+        tags: sheetLevelTags, 
+        contentType: 'text/googlesheet-row-structured', 
       },
     }));
 
@@ -252,14 +302,14 @@ export async function POST(request: NextRequest) {
     try {
       await adminDb.collection('processed_documents').add({
           userId,
-          originalFilename, // Sheet title
+          originalFilename, 
           sourceType,
-          sourceUrl: sheetUrl, // The full URL
-          chunkCount: allChunks.length, // Use total number of chunks from rows
-          rowCount: rowTexts.length, // Add row count
-          uploadedAt: now, // Or ingestedAt
+          sourceUrl: sheetUrl, 
+          chunkCount: allChunks.length, 
+          rowCount: rowObjectsForProcessing.length, // Use count of processed rows
+          uploadedAt: now, 
           status: 'processed',
-          contentType: 'text/googlesheet-row',
+          contentType: 'text/googlesheet-row-structured',
       });
       console.log(`[API /ingest-google-sheet] Successfully logged processed document entry for "${originalFilename}".`);
     } catch (e: any) {
@@ -270,9 +320,9 @@ export async function POST(request: NextRequest) {
     console.log(`[API /ingest-google-sheet] Successfully processed and ingested Google Sheet "${originalFilename}".`);
     return NextResponse.json({
       success: true,
-      message: `Google Sheet "${originalFilename}" (from ${rowTexts.length} rows, ${allChunks.length} chunks) processed and ingested successfully.`,
+      message: `Google Sheet "${originalFilename}" (from ${rowObjectsForProcessing.length} rows, ${allChunks.length} chunks) processed and ingested successfully.`,
       sheetTitle: originalFilename,
-      rowCount: rowTexts.length,
+      rowCount: rowObjectsForProcessing.length,
       chunkCount: allChunks.length,
     });
 

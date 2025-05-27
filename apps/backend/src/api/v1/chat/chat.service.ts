@@ -7,11 +7,11 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
-const PINECONE_INDEX_NAME = process.env.PINECONE_INDEX_NAME;
+const PINECONE_INDEX = process.env.PINECONE_INDEX; // Changed from PINECONE_INDEX_NAME
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-if (!PINECONE_API_KEY || !PINECONE_INDEX_NAME || !OPENAI_API_KEY) {
-  throw new Error('Missing one or more required environment variables: PINECONE_API_KEY, PINECONE_INDEX_NAME, OPENAI_API_KEY');
+if (!PINECONE_API_KEY || !PINECONE_INDEX || !OPENAI_API_KEY) { // Changed from PINECONE_INDEX_NAME
+  throw new Error('Missing one or more required environment variables: PINECONE_API_KEY, PINECONE_INDEX, OPENAI_API_KEY'); // Changed error message
 }
 
 export class ChatService {
@@ -78,7 +78,7 @@ export class ChatService {
       userId: userId,
       question: originalQuery,
       pineconeApiKey: PINECONE_API_KEY!,
-      pineconeIndex: PINECONE_INDEX_NAME!,
+      pineconeIndex: PINECONE_INDEX!, // Changed from PINECONE_INDEX_NAME
       openaiApiKey: OPENAI_API_KEY!,
       similarityThreshold: 0.3, // הורדת הסף משמעותית
       topK: 8, // הגדלת מספר התוצאות
@@ -97,7 +97,7 @@ export class ChatService {
           userId: userId,
           question: altQuery,
           pineconeApiKey: PINECONE_API_KEY!,
-          pineconeIndex: PINECONE_INDEX_NAME!,
+          pineconeIndex: PINECONE_INDEX!, // Changed from PINECONE_INDEX_NAME
           openaiApiKey: OPENAI_API_KEY!,
           similarityThreshold: 0.3,
           topK: 8,
@@ -119,7 +119,7 @@ export class ChatService {
         userId: userId,
         question: originalQuery,
         pineconeApiKey: PINECONE_API_KEY!,
-        pineconeIndex: PINECONE_INDEX_NAME!,
+        pineconeIndex: PINECONE_INDEX!, // Changed from PINECONE_INDEX_NAME
         openaiApiKey: OPENAI_API_KEY!,
         similarityThreshold: 0.1, // סף מאוד נמוך
         topK: 10,
@@ -225,9 +225,14 @@ export class ChatService {
 - שאלה: "מהן שעות הפעילות שלכם?" + קטע מידע עם שעות → תשובה: "שעות הפעילות הן: ראשון עד חמישי 9:00–18:00..."
 - שאלה: "מה ההבדל בין מסלול A ל-B?" + מידע השוואתי → תשובה: "לפי המידע שקיים, מסלול A כולל... בעוד מסלול B מציע..."
 
+ הנחיות לטיפול במידע מובנה (כגון רשומות מגיליונות או מסדי נתונים):
+- מידע זה עשוי להיות מוצג כצמדי "שדה: ערך" (לדוגמה, "שם_מוצר: מחשב נייד, מחיר: 3500, יצרן: חברה כלשהי").
+- כאשר אתה נשאל על מאפיין מסוים של ישות כלשהי (למשל, "מה המחיר של מחשב נייד?"), זהה את השדה המתאים (למשל, "מחיר") עבור הישות ("מחשב נייד") וספק את הערך המשויך.
+- אם ערך עבור שדה מסוים מצוין כלא זמין, חסר, או ריק, ציין זאת בתשובתך רק אם השאלה מתייחסת ישירות לאותו שדה.
+
  שים לב:
-- המידע שסופק לך עשוי להגיע ממסמכים, אתרים, שאלות קודמות, או תיקונים של המשתמש.
-- ייתכן ששם העסק, השירותים או התנאים משתנים בין שיחות — היצמד תמיד למידע שהוזן לך בשיחה הנוכחית.
+ - המידע שסופק לך עשוי להגיע ממסמכים, אתרים, שאלות קודמות, או תיקונים של המשתמש.
+ - ייתכן ששם העסק, השירותים או התנאים משתנים בין שיחות — היצמד תמיד למידע שהוזן לך בשיחה הנוכחית.
 ${isRetryAttempt && originalQueryToRetry ? `
 
 הערה מיוחדת לניסיון חוזר זה: המשתמש לא היה מרוצה מהתשובה הקודמת שניתנה לשאלה זו ("${originalQueryToRetry}"). המשוב של המשתמש היה: "${currentMessageContent}".
